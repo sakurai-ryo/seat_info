@@ -1,6 +1,7 @@
 # 空席確認アプリケーション
 
 ## ディレクトリ
+```
 .
 ├── controller
 ├── middleware
@@ -9,6 +10,7 @@
 ├── service
 ├── shared
 └── main.go
+```
 
 ## 使用技術
 - Go
