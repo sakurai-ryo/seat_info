@@ -1,0 +1,277 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+ ProjectName:
+   Type: String
+   Default: 'sample1'
+ VpcId:
+   Type: AWS::EC2::VPC::Id
+ PublicSubnets:
+   Type: List<AWS::EC2::Subnet::Id>
+   # Descriotion: 'インターネットゲートウェイがアタッチされたSubnet'
+ ProtectedSubnets:
+   Type: List<AWS::EC2::Subnet::Id>
+   # Descriotion: 'NATゲートウェイがアタッチされたSubnet。なかったらPublicSubnetsと同じ値で。'
+ AllowEcsPolicy:
+   Type: List<String>
+   Default: 's3:List*,s3:Get*,s3:Put*'
+   # Descriotion: 'アプリケーションが必要なAWSリソースのポリシー'
+ TaskCpu:
+   Type: Number
+   Default: 256
+ TaskMemory:
+   Type: Number
+   Default: 512
+ DesiredCount:
+   Type: Number
+   Default: 0  # 作成時はイメージがないので起動しないように設定
+   # Descriotion: 'ECSサービスの常時起動タスク数'
+
+Resources:
+ # -------------------------------------
+ # 外からのアクセスを許可するSG
+ # -------------------------------------
+ AllowFromWeb:
+   Type: AWS::EC2::SecurityGroup
+   Properties:
+     GroupName: !Sub allow-from-web-for-${ProjectName}
+     GroupDescription: Security group for the service
+     VpcId: !Ref VpcId
+     Tags:
+       - Key: Name
+         Value: !Sub allow-from-web-for-${ProjectName}
+
+ AllowFromWebIngress:
+   Type: AWS::EC2::SecurityGroupIngress
+   Properties:
+     GroupId: !Ref AllowFromWeb
+     IpProtocol: -1 # -1だとtcp、udp、icmp、icmpv6の全部を指定する
+     SourceSecurityGroupId: !Ref AllowFromWeb
+
+ # -------------------------------------
+ # LBとFargateの通信を許可するSG
+ # -------------------------------------
+ SecurityGroup:
+   Type: AWS::EC2::SecurityGroup
+   Properties:
+     Tags:
+       - Key: Name
+         Value: !Ref ProjectName
+     GroupName: !Ref ProjectName
+     GroupDescription: Security group for the service
+     VpcId: !Ref VpcId
+
+ SecurityGroupIngress:
+   Type: AWS::EC2::SecurityGroupIngress
+   Properties:
+     GroupId: !Ref SecurityGroup
+     IpProtocol: -1 # -1だとtcp、udp、icmp、icmpv6の全部を指定する
+     SourceSecurityGroupId: !Ref SecurityGroup
+
+ LoadBalancer:
+   Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+   Properties:
+     Name: !Sub ${ProjectName}-alb
+     Scheme: internet-facing
+     Subnets: !Ref PublicSubnets
+     Type: application
+     SecurityGroups:
+       - !Ref SecurityGroup
+       - !Ref AllowFromWeb
+
+ HttpListnener:
+   Type: AWS::ElasticLoadBalancingV2::Listener
+   Properties:
+     DefaultActions:
+       - Type: fixed-response
+         FixedResponseConfig:
+           ContentType: text/plain
+           StatusCode: 503
+     LoadBalancerArn: !Ref LoadBalancer
+     Port: 80
+     Protocol: HTTP
+
+ Cluster:
+   Type: AWS::ECS::Cluster
+   Properties:
+     ClusterName: !Ref ProjectName
+
+ Repository:
+   Type: AWS::ECR::Repository
+   Properties:
+     RepositoryName: !Ref ProjectName
+
+ LogGroup:
+   Type: AWS::Logs::LogGroup
+   Properties:
+     LogGroupName: !Sub /ecs/${ProjectName}
+
+ # -------------------------------------
+ # タスク起動時に必要なロールを定義
+ # -------------------------------------
+ EcsTaskExecutionRole:
+   Type: AWS::IAM::Role
+   Properties:
+     AssumeRolePolicyDocument:
+       Version: 2012-10-17
+       Statement:
+         - Effect: Allow
+           Principal:
+             Service:
+               - ecs-tasks.amazonaws.com
+           Action:
+             - sts:AssumeRole
+     ManagedPolicyArns:
+       - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+     RoleName: !Sub ${ProjectName}-task-execution-role
+
+ EcsTaskExecutionRolePolicy:
+   Type: AWS::IAM::Policy
+   Properties:
+     PolicyName: !Sub ${ProjectName}-task-execution-role-policy
+     PolicyDocument:
+       Version: 2012-10-17
+       Statement:
+         - Effect: Allow
+           Action:
+             - ecr:GetLifecyclePolicyPreview
+             - ecr:GetDownloadUrlForLayer
+             - ecr:BatchGetImage
+             - ecr:DescribeImages
+             - ecr:ListTagsForResource
+             - ecr:BatchCheckLayerAvailability
+             - ecr:GetLifecyclePolicy
+             - ecr:GetRepositoryPolicy
+           Resource: !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/*"
+         - Effect: Allow
+           Action:
+             - ecr:GetAuthorizationToken
+             - ssm:GetParameters
+             - secretsmanager:GetSecretValue
+           Resource:
+             - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*"
+     Roles:
+       - Ref: EcsTaskExecutionRole
+
+ # -------------------------------------
+ # アプリケーションに必要なロールを定義
+ # -------------------------------------
+ EcsTaskRole:
+   Type: AWS::IAM::Role
+   Properties:
+     AssumeRolePolicyDocument:
+       Version: 2012-10-17
+       Statement:
+         - Effect: Allow
+           Principal:
+             Service:
+               - ecs-tasks.amazonaws.com
+               - events.amazonaws.com
+           Action:
+             - sts:AssumeRole
+     ManagedPolicyArns:
+       - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceEventsRole
+     RoleName: !Sub ${ProjectName}-task-role
+
+ EcsTaskRolePolicy:
+   Type: AWS::IAM::Policy
+   Properties:
+     PolicyName: !Sub ${ProjectName}-task-role-policy
+     PolicyDocument:
+       Version: 2012-10-17
+       Statement:
+         - Effect: Allow
+           Action: !Ref AllowEcsPolicy
+           Resource: '*'
+     Roles:
+       - Ref: EcsTaskRole
+
+ # --------------------------------------------------------------------------
+ # １つのALBに複数のサービスを起動する場合は以下のリソースを複数作成する必要があります
+ # --------------------------------------------------------------------------
+
+ # -------------------------------------
+ # Fargate タスク定義
+ # -------------------------------------
+ TaskDefinition:
+   Type: AWS::ECS::TaskDefinition
+   Properties:
+     Family: !Ref ProjectName
+     RequiresCompatibilities:
+       - FARGATE
+     Cpu: !Ref TaskCpu
+     Memory: !Ref TaskMemory
+     NetworkMode: awsvpc
+     ExecutionRoleArn: !GetAtt EcsTaskExecutionRole.Arn
+     TaskRoleArn: !GetAtt EcsTaskRole.Arn
+     ContainerDefinitions:
+       - Name: app
+         Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${Repository}
+         PortMappings:
+           - ContainerPort: 80
+             HostPort: 80
+             Protocol: tcp
+         Environment:
+           - Name: TZ
+             Value: Asia/Tokyo
+         LogConfiguration:
+           LogDriver: awslogs
+           Options:
+             awslogs-region: !Ref 'AWS::Region'
+             awslogs-group: !Ref LogGroup
+             awslogs-stream-prefix: app
+         Essential: true
+
+ TargetGroup:
+   Type: AWS::ElasticLoadBalancingV2::TargetGroup
+   Properties:
+     HealthCheckIntervalSeconds: 30
+     HealthCheckPath: /
+     HealthCheckPort: 80
+     HealthCheckProtocol: HTTP
+     HealthCheckTimeoutSeconds: 6
+     HealthyThresholdCount: 3
+     Name: !Ref ProjectName
+     Port: 80
+     Protocol: HTTP
+     UnhealthyThresholdCount: 3
+     TargetType: ip
+     VpcId: !Ref VpcId
+
+ ListnenerRule:
+   Type: AWS::ElasticLoadBalancingV2::ListenerRule
+   Properties:
+     Actions:
+       - Type: forward
+         TargetGroupArn: !Ref TargetGroup
+         Order: 1
+     Conditions:
+       - Field: path-pattern
+         Values:
+           - "*"
+     ListenerArn: !Ref HttpListnener
+     Priority: 100
+
+ Service:
+   Type: AWS::ECS::Service
+   Properties:
+     Cluster: !Ref Cluster
+     DeploymentConfiguration:
+       MaximumPercent: 200
+       MinimumHealthyPercent: 100
+     DesiredCount: !Ref DesiredCount
+     LaunchType: FARGATE
+     LoadBalancers:
+       - ContainerName: app
+         ContainerPort: 80
+         TargetGroupArn: !Ref TargetGroup
+     NetworkConfiguration:
+       AwsvpcConfiguration:
+         AssignPublicIp: DISABLED  # PublicSubnetを利用する場合はENABLEDにする必要があります。
+         SecurityGroups:
+           - !Ref SecurityGroup
+         Subnets: !Ref ProtectedSubnets
+     ServiceName: !Ref ProjectName
+     TaskDefinition: !Ref TaskDefinition
+   DependsOn:
+       - ListnenerRule
