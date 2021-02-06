@@ -1,0 +1,123 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  Stage:
+    Description: Stage
+    Type: String
+    AllowedValues:
+      - dev
+      - stg
+      - rls
+
+  VpcCidrBlock:
+    Description: IPv4 CidrBlock
+    Type: String
+  VpcName:
+    Description: Input a VPC name
+    Type: String
+    Default: "SeatVPCName"
+
+  AZ:
+    Description: AZ
+    Type: AWS::EC2::AvailabilityZone::Name
+  PublicSubnetCidrBlock:
+    Description: Public Subnet IPv4 CidrBlock
+    Type: String
+  PublicSubnetName:
+    Description: Public Subnet name
+    Type: String
+    Default: "SeatPublicSubnet"
+
+  InternetGwName:
+    Description: InternetGW name
+    Type: String
+    Default: "SeatInterNetGW"
+
+  RouteTableName:
+    Description: RouteTable name
+    Type: String
+    Default: "SeatRouteTable"
+
+
+Resources:
+ # -------------------------------------
+ # VPC
+ # -------------------------------------
+  SeatVPC:
+    Type: AWS::EC2::VPC
+    Properties: 
+      CidrBlock: !Ref VpcCidrBlock
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags: 
+        - Key: Name
+          Value: !Ref VpcName
+        - Key: Stage
+          Value: !Ref Stage
+
+ # -------------------------------------
+ # Security Group
+ # -------------------------------------
+  SeatPublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: !Ref AZ
+      CidrBlock: !Ref PublicSubnetCidrBlock
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref SeatVPC
+      Tags: 
+        - Key: Name
+          Value: !Ref PublicSubnetName
+        - Key: Stage
+          Value: !Ref Stage
+
+ # -------------------------------------
+ # Internet Gateway
+ # -------------------------------------
+  SeatInternetGW:
+    Type: AWS::EC2::InternetGateway
+    Properties: 
+      Tags: 
+        - Key: Name
+          Value: !Ref InternetGwName
+        - Key: Stage
+          Value: !Ref Stage
+
+  SeatVPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      InternetGatewayId: !Ref SeatInternetGW
+      VpcId: !Ref SeatVPC
+
+ # -------------------------------------
+ # Route Table
+ # -------------------------------------
+  SeatRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref SeatVPC
+      Tags: 
+        - Key: Name
+          Value: !Ref RouteTableName
+        - Key: Stage
+          Value: !Ref Stage
+
+  SeatPublicRoute:
+    Type: AWS::EC2::Route
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref SeatInternetGW
+      RouteTableId: !Ref SeatRouteTable
+
+  SeatSubnetRouteTableAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties: 
+        RouteTableId: !Ref SeatRouteTable
+        SubnetId: !Ref SeatPublicSubnet
+
+Outputs:
+  VpcId:
+    Value: !Ref SeatVPC
+    Export:
+      Name: !Sub "${Stage}-VpcId"
