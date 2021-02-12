@@ -52,4 +52,5 @@ aws cloudformation deploy \
     --template-file aws/codePipeline/template.yml \
     --capabilities CAPABILITY_NAMED_IAM \
     --parameter-overrides \
-        Stage=${stage}
+        Stage=${stage} \
+        BranchName=master

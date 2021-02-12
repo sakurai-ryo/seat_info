@@ -22,7 +22,7 @@ Parameters:
     Default: master
   RepositoryName:
     Type: String
-    Default: seat_info
+    Default: sakurai-ryo/seat_info
 
 Resources:
  # -------------------------------------
@@ -209,7 +209,7 @@ Resources:
               Configuration:
                 ConnectionArn: {"Fn::ImportValue": !Sub "${Stage}-${ProjectName}-Github-Connection"}
                 FullRepositoryId: !Ref RepositoryName
-                BranchName: master # !Ref BranchName
+                BranchName: !Ref BranchName
                 OutputArtifactFormat: 'CODE_ZIP'
               RunOrder: 1
               OutputArtifacts:
