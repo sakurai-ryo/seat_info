@@ -17,9 +17,12 @@ Parameters:
   ECRName:
     Type: String
     Default: seat-info-repository
-  Branch:
+  BranchName:
     Type: String
     Default: feature-infra
+  RepositoryName:
+    Type: String
+    Default: seat_info
 
 Resources:
  # -------------------------------------
@@ -132,24 +135,6 @@ Resources:
     Type: AWS::S3::Bucket
 
  # -------------------------------------
- # Github Webhook
- # -------------------------------------
-  PipelineWebhook:
-    Type: "AWS::CodePipeline::Webhook"
-    Properties:
-      Authentication: GITHUB_HMAC
-      AuthenticationConfiguration:
-        SecretToken: !Sub '{{resolve:secretsmanager:${Stage}-SeatInto-Secret:SecretString}}'
-      Filters:
-        - JsonPath: "$.ref"
-          MatchEquals: !Sub 'refs/heads/${Branch}'
-      TargetPipeline: !Ref Pipeline
-      TargetAction: SourceAction
-      Name: !Sub ${Stage}-GitHubPipelineWebhook
-      TargetPipelineVersion: !GetAtt Pipeline.Version
-      RegisterWithThirdParty: true
-
- # -------------------------------------
  # CodeBuild
  # -------------------------------------
   CodeBuildProject:
@@ -218,15 +203,14 @@ Resources:
             - Name: SourceAction
               ActionTypeId:
                 Category: Source
-                Owner: ThirdParty
+                Owner: AWS
                 Version: "1"
-                Provider: GitHub
+                Provider: CodeStarSourceConnection
               Configuration:
-                Owner: sakurai-ryo
-                Repo: seat_info
-                PollForSourceChanges: false
-                Branch: !Ref Branch
-                OAuthToken: !Sub '{{resolve:secretsmanager:${Stage}-SeatInto-Secret:SecretString}}'
+                ConnectionArn: {"Fn::ImportValue": !Sub "${Stage}-${ProjectName}-Github-Connection"}
+                FullRepositoryId: !Ref RepositoryName
+                BranchName: !Ref BranchName
+                OutputArtifactFormat: 'CODE_ZIP'
               RunOrder: 1
               OutputArtifacts:
                 - Name: App

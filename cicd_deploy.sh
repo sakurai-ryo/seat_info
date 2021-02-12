@@ -35,7 +35,18 @@ echo "DeployStage: ${stage}"
 
 
 # TODO: Deploy時のパラメーターは環境変数とかにする
-# Network Stack
+
+echo "--------- CodeStar Stack ----------"
+# CodeStar Stack
+aws cloudformation deploy \
+    --stack-name "${stage}-SeatInfo-codeStarConnection" \
+    --template-file aws/codeStarConnection/template.yml \
+    --parameter-overrides \
+        Stage=${stage}
+
+
+echo "--------- CodePipeline Stack ----------"
+# CodePipeline Stack
 aws cloudformation deploy \
     --stack-name "${stage}-SeatInfo-codePipeline" \
     --template-file aws/codePipeline/template.yml \

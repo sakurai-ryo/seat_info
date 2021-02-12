@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  Stage:
+    Description: Stage
+    Type: String
+    AllowedValues:
+      - dev
+      - stg
+      - rls
+  ProjectName:
+    Type: String
+    Default: SeatInfo
+  ProviderType:
+    Type: String
+    Default: GitHub
+    AllowedValues:
+      - GitHub
+
+Resources:
+  SourceConnection:
+    Type: 'AWS::CodeStarConnections::Connection'
+    Properties:
+      ConnectionName: !Sub ${Stage}-${ProjectName}-github-connection
+      ProviderType: !Ref ProviderType
+
+Outputs:
+  SourceConnection:
+    Value: !Ref SourceConnection
+    Export: 
+      Name: !Sub ${Stage}-${ProjectName}-Github-Connection
