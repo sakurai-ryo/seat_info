@@ -13,7 +13,7 @@ Parameters:
     Default: SeatInfo
   ContainerName:
     Type: String
-    Default: Seat_Info
+    Default: seat-info-repository
   ECRName:
     Type: String
     Default: seat-info-repository

@@ -17,3 +17,9 @@
 # vendor/
 
 app/go.sum
+
+# for local build
+app/buildspec.yml
+aws-codebuild-docker-images/*
+app/codebuild_build.sh
+app/tmp/*
