@@ -20,9 +20,9 @@ Parameters:
   BranchName:
     Type: String
     Default: master
-  RepositoryName:
-    Type: String
-    Default: sakurai-ryo/seat_info
+  # RepositoryName:
+  #   Type: String
+  #   Default: sakurai-ryo/seat_info
 
 Resources:
  # -------------------------------------
@@ -209,7 +209,7 @@ Resources:
                 Provider: CodeStarSourceConnection
               Configuration:
                 ConnectionArn: {"Fn::ImportValue": !Sub "${Stage}-${ProjectName}-Github-Connection"}
-                FullRepositoryId: !Ref RepositoryName
+                FullRepositoryId: sakurai-ryo/seat_info # !Ref RepositoryName
                 BranchName: !Ref BranchName
                 OutputArtifactFormat: 'CODE_ZIP'
               RunOrder: 1
