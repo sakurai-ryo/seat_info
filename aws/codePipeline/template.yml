@@ -19,7 +19,7 @@ Parameters:
     Default: seat-info-repository
   BranchName:
     Type: String
-    Default: feature-infra
+    Default: master
   RepositoryName:
     Type: String
     Default: seat_info
