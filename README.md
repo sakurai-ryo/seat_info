@@ -46,6 +46,7 @@
     - Fargate
     - ALB
     - WAF
+    - Route53
     - DynamoDB
     - CodePipeline
       - Github
