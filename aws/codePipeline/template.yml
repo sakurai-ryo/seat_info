@@ -1,472 +1,262 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: 2010-09-09
 
 Parameters:
- ProjectName:
-   Type: String
-   Default: 'sample'
- VpcId:
-   Type: AWS::EC2::VPC::Id
- ProtectedSubnets:
-   Type: List<AWS::EC2::Subnet::Id>
-   # Descriotion: 'NATゲートウェイがアタッチされたSubnet。'
- CICredentialArn:
-   Type: String
-   # Descriotion: SecretsManagerに登録した機密情報のARN
- AccountIdForProduction:
-   Type: String
-   # Description: 本番環境のAWSアカウントID
- EcrRepository:
-   Type: String
- BuildDir:
-   Type: String
-   Default: '.'
- ContainerName:
-   Type: String
-   Default: 'app'
- ClusterName:
-   Type: String
- ServiceName:
-   Type: String
- GitHubOwner:
-   Type: String
- GitHubRepository:
-   Type: String
- GitHubBranch:
-   Type: String
-   Default: 'master'
-   # Description: このブランチの変更をトリガーにCodePipelineが実行されます。
- ReleaseVersion:
-   Type: String
-   Default: 'v1.0'
+  Stage:
+    Description: Stage
+    Type: String
+    AllowedValues:
+      - dev
+      - stg
+      - rls
+  ProjectName:
+    Type: String
+    Default: SeatInfo
+  ContainerName:
+    Type: String
+    Default: Seat_Info
+  ECRName:
+    Type: String
+    Default: seat-info-repository
+  Branch:
+    Type: String
+    Default: feature-infra
 
 Resources:
- ArtifactBucket:
-   Type: AWS::S3::Bucket
-   Properties:
-     BucketName: !Sub ${AWS::AccountId}-arfifacts
-     AccessControl: Private
-     PublicAccessBlockConfiguration:
-       BlockPublicAcls: True
-       BlockPublicPolicy: True
-       IgnorePublicAcls: True
-       RestrictPublicBuckets: True
+ # -------------------------------------
+ # CodeBuild Role
+ # -------------------------------------
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub ${Stage}-Code-Build-Role
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Resource: !Sub arn:aws:s3:::${ArtifactBucket}/*
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketAcl
+                  - s3:GetBucketLocation
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:GetRepositoryPolicy
+                  - ecr:DescribeRepositories
+                  - ecr:ListImages
+                  - ecr:DescribeImages
+                  - ecr:BatchGetImage
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:PutImage
 
  # -------------------------------------
- # CodeBuildにアタッチされます。例えばCodeBuildでDBのマイグレーションを実行する場合に必要になります。
+ # CodePipeline Role
  # -------------------------------------
- SecurityGroup:
-   Type: AWS::EC2::SecurityGroup
-   Properties:
-     Tags:
-       - Key: Name
-         Value: !Ref ProjectName
-     GroupName: !Ref ProjectName
-     GroupDescription: Security group for the service
-     VpcId: !Ref VpcId
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub ${Stage}-Code-Pipeline-Role
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource:
+                  - !Sub arn:aws:s3:::${ArtifactBucket}/*
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - codecommit:GetRepository
+                  - codecommit:ListBranches
+                  - codecommit:GetUploadArchiveStatus
+                  - codecommit:UploadArchive
+                  - codecommit:CancelUploadArchive
+                  - codedeploy:CreateDeployment
+                  - codedeploy:GetApplication
+                  - codedeploy:GetApplicationRevision
+                  - codedeploy:GetDeployment
+                  - codedeploy:GetDeploymentConfig
+                  - codedeploy:RegisterApplicationRevision
+                  - codebuild:StartBuild
+                  - codebuild:StopBuild
+                  - codebuild:BatchGet*
+                  - codebuild:Get*
+                  - codebuild:List*
+                  - codecommit:GetBranch
+                  - codecommit:GetCommit
+                  - s3:*
+                  - ecs:*
+                  - elasticloadbalancing:*
+                  - autoscaling:*
+                  - iam:PassRole
 
- SecurityGroupIngress:
-   Type: AWS::EC2::SecurityGroupIngress
-   Properties:
-     GroupId: !Ref SecurityGroup
-     IpProtocol: -1
-     SourceSecurityGroupId: !Ref SecurityGroup
+ # -------------------------------------
+ # Artifact S3 Bucket
+ # -------------------------------------
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
 
- CodePipelineRole:
-   Type: AWS::IAM::Role
-   Properties:
-     AssumeRolePolicyDocument:
-       Version: 2012-10-17
-       Statement:
-         - Effect: Allow
-           Principal:
-             Service:
-               - codepipeline.amazonaws.com
-           Action:
-             - sts:AssumeRole
-     ManagedPolicyArns:
-       - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess
-       - arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess
-       - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
-       - arn:aws:iam::aws:policy/AmazonS3FullAccess
-       - arn:aws:iam::aws:policy/CloudWatchFullAccess
-       - arn:aws:iam::aws:policy/AmazonEC2ContainerServiceFullAccess
-     RoleName: !Sub ${ProjectName}-codepipeline-role
+ # -------------------------------------
+ # Github Webhook
+ # -------------------------------------
+  PipelineWebhook:
+    Type: "AWS::CodePipeline::Webhook"
+    Properties:
+      Authentication: GITHUB_HMAC
+      AuthenticationConfiguration:
+        SecretToken: !Sub '{{resolve:secretsmanager:${Stage}-SeatInto-Secret:SecretString}}'
+      Filters:
+        - JsonPath: "$.ref"
+          MatchEquals: !Sub 'refs/heads/${Branch}'
+      TargetPipeline: !Ref Pipeline
+      TargetAction: SourceAction
+      Name: !Sub ${Stage}-GitHubPipelineWebhook
+      TargetPipelineVersion: !GetAtt Pipeline.Version
+      RegisterWithThirdParty: true
 
- CodeBuildRole:
-   Type: AWS::IAM::Role
-   Properties:
-     AssumeRolePolicyDocument:
-       Version: 2012-10-17
-       Statement:
-         - Effect: Allow
-           Principal:
-             Service:
-               - codebuild.amazonaws.com
-               - events.amazonaws.com
-           Action:
-             - sts:AssumeRole
-     ManagedPolicyArns:
-       - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess
-       - arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess
-       - arn:aws:iam::aws:policy/AmazonS3FullAccess
-       - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
-     RoleName: !Sub ${ProjectName}-codebuild-role
+ # -------------------------------------
+ # CodeBuild
+ # -------------------------------------
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            pre_build:
+              commands:
+                - echo Logging in to Amazon ECR...
+                - $(aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin $CODEBUILD_WEBHOOK_ACTOR_ACCOUNT_ID.dkr.ecr.ap-northeast-1.amazonaws.com)
+                - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+                - IMAGE_TAG=${COMMIT_HASH:=latest}
+            build:
+              commands:
+                - echo Build started on `date`
+                - echo Building the Docker image...
+                - docker build -t $REPOSITORY_URI:latest ../../app
+                - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+            post_build:
+              commands:
+                - echo Build completed on `date`
+                - echo Pushing the Docker images...
+                - docker push $REPOSITORY_URI:latest
+                - docker push $REPOSITORY_URI:$IMAGE_TAG
+                - echo Writing image definitions file...
+                - echo "[{\"name\":\"${ContainerName}\",\"imageUri\":\"${REPOSITORY_URI}:${IMAGE_TAG}\"}]" > imagedefinitions.json
+          artifacts:
+            files: imagedefinitions.json
+      Environment:
+        PrivilegedMode: true
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/docker:18.09.0-1.7.0
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+          - Name: REPOSITORY_URI
+            Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRName}
+          - Name: ContainerName
+            Value: !Ref ContainerName
+          - Name: ACCOUNT_ID
+            Value: !Ref "AWS::AccountId"
+      Name: !Sub ${Stage}-${ProjectName}-CodeBuild
+      ServiceRole: !Ref CodeBuildServiceRole
 
- CodeBuildRolePolicy:
-   Type: AWS::IAM::Policy
-   Properties:
-     PolicyName: !Sub ${ProjectName}-codebuild-role-policy
-     PolicyDocument:
-       Version: 2012-10-17
-       Statement:
-         - Effect: Allow
-           Action:
-             - ecr:GetAuthorizationToken
-             - ssm:GetParameters
-             - secretsmanager:GetSecretValue
-           Resource:
-             - '*'
-         - Effect: Allow
-           Action:
-             - sts:AssumeRole
-           Resource:
-             - '*'
-         - Effect: Allow
-           Action:
-             - ec2:CreateNetworkInterface
-             - ec2:DescribeDhcpOptions
-             - ec2:DescribeNetworkInterfaces
-             - ec2:DeleteNetworkInterface
-             - ec2:DescribeSubnets
-             - ec2:DescribeSecurityGroups
-             - ec2:DescribeVpcs
-           Resource:
-             - '*'
-         - Effect: Allow
-           Action:
-             - '*'
-           Resource:
-             - !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:network-interface/*"
-     Roles:
-       - Ref: CodeBuildRole
-
- AppBuildProject:
-   Type: AWS::CodeBuild::Project
-   Properties:
-     Name: !Sub ${ProjectName}-build
-     Artifacts:
-       Type: CODEPIPELINE
-     Description: !Sub Building stage for ${ProjectName}
-     Environment:
-       ComputeType: BUILD_GENERAL1_LARGE
-       Image: aws/codebuild/standard:4.0
-       Type: LINUX_CONTAINER
-       PrivilegedMode: True
-       EnvironmentVariables:
-         - Name: REPOSITORY_URI
-           Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrRepository}"
-         - Name: CONTAINER_NAME
-           Value: !Ref ContainerName
-         - Name: BUILD_DIR
-           Value: !Ref BuildDir
-     ServiceRole: !Ref CodeBuildRole
-     Source:
-       Type: CODEPIPELINE
-       BuildSpec:
-         !Join [
-           "\n",
-           [
-             "version: 0.2",
-             "",
-             "env:",
-             "  variables:",
-             "    DOCKER_BUILDKIT: \"1\"",
-             "  secrets-manager:",
-       !Sub  "    GITHUB_TOKEN: \"${CICredentialArn}:GitHubPersonalAccessToken\"",
-       !Sub  "    DOCKERHUB_ID: \"${CICredentialArn}:DockerHubID\"",
-       !Sub  "    DOCKERHUB_PASSWORD: \"${CICredentialArn}:DockerHubPassword\"",
-             "",
-             "phases:",
-             "  pre_build:",
-             "    commands:",
-             "      - echo Logging in to DockerHub...",
-             "      - docker login -u ${DOCKERHUB_ID} -p ${DOCKERHUB_PASSWORD}",
-             "      - echo Logging in to Amazon ECR...",
-             "      - $(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION)",
-             "      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)",
-             "      - IMAGE_TAG=${COMMIT_HASH:=latest}",
-             "  build:",
-             "    commands:",
-             "      - echo Build started on `date`",
-             "      - docker build -t $REPOSITORY_URI:latest $BUILD_DIR --build-arg GITHUB_TOKEN=$GITHUB_TOKEN",
-             "      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG",
-             "  post_build:",
-             "    commands:",
-             "      - echo Build completed on `date`",
-             "      - docker push $REPOSITORY_URI:latest",
-             "      - docker push $REPOSITORY_URI:$IMAGE_TAG",
-             "      - echo \"[{\\\"name\\\":\\\"${CONTAINER_NAME}\\\",\\\"imageUri\\\":\\\"${REPOSITORY_URI}:${IMAGE_TAG}\\\"}]\" > imagedefinitions.json",
-             "artifacts:",
-             "  files:",
-             "    - imagedefinitions.json",
-             ""
-           ]
-         ]
-     # VpcConfig:
-     #   VpcId: !Ref VpcId
-     #   Subnets: !Ref ProtectedSubnets
-     #   SecurityGroupIds:
-     #     - !Ref SecurityGroup
-     TimeoutInMinutes: 30
-     Cache:
-       Type: LOCAL  # 有効時間が短いためこの効果に過度な期待をしないでください。
-       Modes:
-         - LOCAL_DOCKER_LAYER_CACHE
-
- TaggingProject:
-   Type: AWS::CodeBuild::Project
-   Properties:
-     Name: !Sub ${ProjectName}-tagging
-     Artifacts:
-       Type: CODEPIPELINE
-     Description: !Sub Tagging stage for ${ProjectName}
-     Environment:
-       ComputeType: BUILD_GENERAL1_SMALL
-       Image: aws/codebuild/standard:4.0
-       Type: LINUX_CONTAINER
-       PrivilegedMode: True
-       EnvironmentVariables:
-         - Name: GITHUB_OWNER
-           Value: !Ref GitHubOwner
-         - Name: GITHUB_PROJECT
-           Value: !Ref GitHubRepository
-         - Name: RELEASE_VERSION
-           Value: !Ref ReleaseVersion
-     ServiceRole: !Ref CodeBuildRole
-     Source:
-       Type: CODEPIPELINE
-       BuildSpec: !Join [
-         "\n",
-         [
-           "version: 0.2",
-           "",
-           "env:",
-           "  variables:",
-           "    DOCKER_BUILDKIT: \"1\"",
-           "  secrets-manager:",
-     !Sub  "    GITHUB_TOKEN: \"${CICredentialArn}:GitHubPersonalAccessToken\"",
-     !Sub  "    DOCKERHUB_ID: \"${CICredentialArn}:DockerHubID\"",
-     !Sub  "    DOCKERHUB_PASSWORD: \"${CICredentialArn}:DockerHubPassword\"",
-           "",
-           "phases:",
-           "  pre_build:",
-           "    commands:",
-           "      - echo Logging in to DockerHub...",
-           "      - docker login -u ${DOCKERHUB_ID} -p ${DOCKERHUB_PASSWORD}",
-           "      - tag_name=\"${RELEASE_VERSION}\"",
-           "      - description=''",
-           "      - apt-get install -y tzdata",
-           "      - ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime",
-           "      - released=`date '+%Y%m%d%H%M'`",
-           "  build:",
-           "    commands:",
-           "      - authorization=\"Authorization:token $GITHUB_TOKEN\"",
-           "      - content_type=\"Content-Type:application/json\"",
-           "      - release_tag=$tag_name.$released",
-           "      - release_name=$tag_name.$released",
-           "      - params=\"{\\\"tag_name\\\":\\\"$release_tag\\\",\\\"target_commitish\\\":\\\"$CODEBUILD_RESOLVED_SOURCE_VERSION\\\",\\\"name\\\":\\\"$release_name\\\",\\\"body\\\":\\\"$description\\\",\\\"draft\\\":false,\\\"prerelease\\\":false}\"",
-           "  post_build:",
-           "    commands:",
-           "      - curl -X POST -H \"$authorization\" -H \"$content_type\" -d \"$params\" https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_PROJECT}/releases",
-           "",
-         ]
-       ]
-     # VpcConfig:
-     #   VpcId: !Ref VpcId
-     #   Subnets: !Ref ProtectedSubnets
-     #   SecurityGroupIds:
-     #     - !Ref SecurityGroup
-     TimeoutInMinutes: 30
-
- ReleaseProject:
-   Type: AWS::CodeBuild::Project
-   Properties:
-     Name: !Sub ${ProjectName}-release
-     Artifacts:
-       Type: CODEPIPELINE
-     Description: !Sub Release stage for ${ProjectName}
-     Environment:
-       ComputeType: BUILD_GENERAL1_SMALL
-       Image: aws/codebuild/standard:4.0
-       Type: LINUX_CONTAINER
-       PrivilegedMode: True
-       EnvironmentVariables:
-         - Name: DEV_APP_CONTAINER_IMAGE_URI
-           Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrRepository}"
-         - Name: PRD_APP_CONTAINER_IMAGE_URI
-           Value: !Sub "${AccountIdForProduction}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrRepository}"
-         - Name: GITHUB_OWNER
-           Value: !Ref GitHubOwner
-         - Name: GITHUB_PROJECT
-           Value: !Ref GitHubRepository
-         - Name: RELEASE_VERSION
-           Value: !Ref ReleaseVersion
-         - Name: PRD_ACCOUNT_ID
-           Value: !Ref AccountIdForProduction
-         - Name: ASSUME_ROLE_ARN
-           Value: !Sub "arn:aws:iam::${AccountIdForProduction}:role/${ProjectName}-release-role"  # 本番環境の構築時に作成します。
-     ServiceRole: !Ref CodeBuildRole
-     Source:
-       Type: CODEPIPELINE
-       BuildSpec: !Join [
-         "\n",
-         [
-           "version: 0.2",
-           "",
-           "env:",
-           "  variables:",
-           "    DOCKER_BUILDKIT: \"1\"",
-           "  secrets-manager:",
-     !Sub  "    GITHUB_TOKEN: \"${CICredentialArn}:GitHubPersonalAccessToken\"",
-     !Sub  "    DOCKERHUB_ID: \"${CICredentialArn}:DockerHubID\"",
-     !Sub  "    DOCKERHUB_PASSWORD: \"${CICredentialArn}:DockerHubPassword\"",
-           "",
-           "phases:",
-           "  pre_build:",
-           "    commands:",
-           "      - echo Logging in to DockerHub...",
-           "      - docker login -u ${DOCKERHUB_ID} -p ${DOCKERHUB_PASSWORD}",
-           "      - echo Logging in to Amazon ECR...",
-           "      - aws --version",
-           "      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)",
-           "      - IMAGE_TAG=${COMMIT_HASH:=latest}",
-           "      - RELEASE_TAG=`curl -X GET -H \"Authorization:token ${GITHUB_TOKEN}\" https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_PROJECT}/releases | jq -r '. | select(.[0].tag_name | startswith(\"'$RELEASE_VERSION'\"))' | jq -r .[0].tag_name`",
-           "      - if [ -z $RELEASE_TAG ]; then RELEASE_TAG=$RELEASE_VERSION; fi",
-           "      - echo $RELEASE_TAG",
-           "  build:",
-           "    commands:",
-           "      - echo Build started on `date`",
-           "      - $(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION)",
-           "      - docker pull $DEV_APP_CONTAINER_IMAGE_URI:$IMAGE_TAG",
-           "      - docker tag  $DEV_APP_CONTAINER_IMAGE_URI:$IMAGE_TAG $DEV_APP_CONTAINER_IMAGE_URI:$RELEASE_VERSION",
-           "      - docker tag  $DEV_APP_CONTAINER_IMAGE_URI:$IMAGE_TAG $DEV_APP_CONTAINER_IMAGE_URI:$RELEASE_TAG",
-           "      - docker push $DEV_APP_CONTAINER_IMAGE_URI:$RELEASE_VERSION",
-           "      - docker push $DEV_APP_CONTAINER_IMAGE_URI:$RELEASE_TAG",
-           "      - docker tag  $DEV_APP_CONTAINER_IMAGE_URI:$IMAGE_TAG $PRD_APP_CONTAINER_IMAGE_URI:$RELEASE_VERSION",
-           "      - docker tag  $DEV_APP_CONTAINER_IMAGE_URI:$IMAGE_TAG $PRD_APP_CONTAINER_IMAGE_URI:$RELEASE_TAG",
-           "      - docker tag  $DEV_APP_CONTAINER_IMAGE_URI:$IMAGE_TAG $PRD_APP_CONTAINER_IMAGE_URI:latest",
-           "  post_build:",
-           "    commands:",
-           "      - echo Pushing the Docker images...",
-           "      - mkdir -p credentials",
-           "      - echo \"[profile production]\" > credentials/config",
-           "      - echo \"role_arn = ${ASSUME_ROLE_ARN}\" >> credentials/config",
-           "      - echo \"credential_source = EcsContainer\" >> credentials/config",
-           "      - export AWS_CONFIG_FILE=${CODEBUILD_SRC_DIR}/credentials/config",
-           "      - aws sts get-caller-identity --profile production",
-           "      - $(aws ecr get-login --registry-ids ${PRD_ACCOUNT_ID} --no-include-email --region $AWS_DEFAULT_REGION --profile production)",
-           "      - docker push $PRD_APP_CONTAINER_IMAGE_URI:$RELEASE_VERSION",
-           "      - docker push $PRD_APP_CONTAINER_IMAGE_URI:$RELEASE_TAG",
-           "      - docker push $PRD_APP_CONTAINER_IMAGE_URI:latest",
-           "",
-         ]
-       ]
-     # VpcConfig:
-     #   VpcId: !Ref VpcId
-     #   Subnets: !Ref ProtectedSubnets
-     #   SecurityGroupIds:
-     #     - !Ref SecurityGroup
-     TimeoutInMinutes: 30
-
- CodePipeline:
-   Type: AWS::CodePipeline::Pipeline
-   Properties:
-     ArtifactStore:
-       Location: !Ref ArtifactBucket
-       Type: S3
-     Name: !Ref ProjectName
-     RestartExecutionOnUpdate: false
-     RoleArn: !GetAtt CodePipelineRole.Arn
-     Stages:
-       - Name: Source
-         Actions:
-           - Name: SourceCode
-             ActionTypeId:
-               Category: Source
-               Owner: ThirdParty
-               Version: 1
-               Provider: GitHub
-             Configuration:
-               Owner: !Ref GitHubOwner
-               Repo: !Ref GitHubRepository
-               Branch: !Ref GitHubBranch
-               OAuthToken: !Sub '{{resolve:secretsmanager:${CICredentialArn}:SecretString:GitHubPersonalAccessToken}}'
-             OutputArtifacts:
-               - Name: SourceCode
-             RunOrder: 1
-       - Name: Build
-         Actions:
-           - Name: CodeBuild
-             InputArtifacts:
-               - Name: SourceCode
-             ActionTypeId:
-               Category: Build
-               Owner: AWS
-               Provider: CodeBuild
-               Version: 1
-             Configuration:
-               ProjectName: !Ref AppBuildProject
-             OutputArtifacts:
-               - Name: BuildImage
-             RunOrder: 1
-       - Name: Deploy
-         Actions:
-           - Name: Deploy
-             InputArtifacts:
-               - Name: BuildImage
-             ActionTypeId:
-               Category: Deploy
-               Owner: AWS
-               Provider: ECS
-               Version: 1
-             Configuration:
-               ClusterName: !Ref ClusterName
-               FileName: imagedefinitions.json
-               ServiceName: !Ref ServiceName
-             OutputArtifacts: []
-             RunOrder: 1
-       - Name: Approval
-         Actions:
-           - Name: Approval
-             ActionTypeId:
-               Category: Approval
-               Owner: AWS
-               Version: 1
-               Provider: Manual
-             RunOrder: 1
-       - Name: GitHubTagging
-         Actions:
-           - Name: CodeBuild
-             InputArtifacts:
-               - Name: SourceCode
-             ActionTypeId:
-               Category: Build
-               Owner: AWS
-               Provider: CodeBuild
-               Version: 1
-             Configuration:
-               ProjectName: !Ref TaggingProject
-             RunOrder: 1
-       - Name: Release
-         Actions:
-           - Name: CodeBuild
-             InputArtifacts:
-               - Name: SourceCode
-             ActionTypeId:
-               Category: Build
-               Owner: AWS
-               Provider: CodeBuild
-               Version: 1
-             Configuration:
-               ProjectName: !Ref ReleaseProject
-             RunOrder: 1
+ # -------------------------------------
+ # CodePipeline 
+ # -------------------------------------
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      Name: !Sub ${Stage}-${ProjectName}-CodePipeline
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: SourceAction
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Version: "1"
+                Provider: GitHub
+              Configuration:
+                Owner: sakurai-ryo
+                Repo: seat_info
+                PollForSourceChanges: false
+                Branch: !Ref Branch
+                OAuthToken: !Sub '{{resolve:secretsmanager:${Stage}-SeatInto-Secret:SecretString}}'
+              RunOrder: 1
+              OutputArtifacts:
+                - Name: App
+        - Name: Build
+          Actions:
+            - Name: Build
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: "1"
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              RunOrder: 1
+              InputArtifacts:
+                - Name: App
+              OutputArtifacts:
+                - Name: BuildOutput
+        - Name: Deploy
+          Actions:
+            - Name: Deploy
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: "1"
+                Provider: ECS
+              Configuration:
+                ClusterName: { "Fn::ImportValue": !Sub "${Stage}-ECSClusterName" }
+                ServiceName: { "Fn::ImportValue": !Sub "${Stage}-ECSServiceName" }
+                FileName: imagedefinitions.json
+              RunOrder: 1
+              InputArtifacts:
+                - Name: BuildOutput

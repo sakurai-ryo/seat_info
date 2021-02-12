@@ -37,10 +37,8 @@ echo "DeployStage: ${stage}"
 # TODO: Deploy時のパラメーターは環境変数とかにする
 # Network Stack
 aws cloudformation deploy \
-    --stack-name "${stage}-SeatInfo-network" \
-    --template-file aws/network/template.yml \
+    --stack-name "${stage}-SeatInfo-codePipeline" \
+    --template-file aws/codePipeline/template.yml \
+    --capabilities CAPABILITY_NAMED_IAM \
     --parameter-overrides \
-        AZ=ap-northeast-1a \
-        VpcCidrBlock=192.168.2.0/24 \
-        PublicSubnetCidrBlock=192.168.2.0/25 \
         Stage=${stage}

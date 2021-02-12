@@ -10,7 +10,7 @@ Parameters:
       - rls
   ProjectName:
     Type: String
-    Default: "SeatInfo"
+    Default: SeatInfo
   VpcCidrBlock:
     Description: IPv4 CidrBlock
     Type: String
