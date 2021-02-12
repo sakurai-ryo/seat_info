@@ -256,6 +256,11 @@ Outputs:
     Export:
       Name: !Sub "${Stage}-MainPublicSubnetId"
 
+  ALBArn:
+    Value: !Ref LoadBalancer
+    Export:
+      Name: !Sub "${Stage}-ALBArn"
+
   TargetGroupArn:
     Value: !Ref TargetGroup
     Export:

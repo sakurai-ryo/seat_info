@@ -49,6 +49,15 @@ aws cloudformation deploy \
         SubPublicSubnetCidrBlock=192.168.2.0/24 \
         Stage=${stage}
 
+echo "---------- WAF Stack ----------"
+# WAF Stack
+aws cloudformation deploy \
+    --stack-name "${stage}-SeatInfo-waf" \
+    --template-file aws/waf/template.yml \
+    --capabilities CAPABILITY_NAMED_IAM \
+    --parameter-overrides \
+        Stage=${stage}
+
 echo "---------- SecretManager Stack ----------"
 # SecretManager Stack
 aws cloudformation deploy \

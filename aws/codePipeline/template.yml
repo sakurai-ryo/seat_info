@@ -209,7 +209,7 @@ Resources:
               Configuration:
                 ConnectionArn: {"Fn::ImportValue": !Sub "${Stage}-${ProjectName}-Github-Connection"}
                 FullRepositoryId: !Ref RepositoryName
-                BranchName: !Ref BranchName
+                BranchName: master # !Ref BranchName
                 OutputArtifactFormat: 'CODE_ZIP'
               RunOrder: 1
               OutputArtifacts:
