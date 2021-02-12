@@ -1,0 +1,194 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  Stage:
+    Description: Stage
+    Type: String
+    AllowedValues:
+      - dev
+      - stg
+      - rls
+  ProjectName:
+    Type: String
+    Default: SeatInfo
+
+  AllowEcsPolicy:
+    Type: List<String>
+    Default: "s3:List*,s3:Get*,s3:Put*"
+
+  TaskCpu:
+    Type: Number
+    Default: 256
+  TaskMemory:
+    Type: Number
+    Default: 512
+  DesiredCount:
+    Type: Number
+    Default: 0  # 作成時はイメージがないので起動しないように設定
+    # Descriotion: "ECSサービスの常時起動タスク数"
+
+Resources:
+
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref ProjectName
+
+  Repository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: seat-info-repository
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /ecs/${ProjectName}
+
+  # -------------------------------------
+  # タスク起動時に必要なロールを定義
+  # -------------------------------------
+  EcsTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      RoleName: !Sub ${ProjectName}-task-execution-role
+
+  EcsTaskExecutionRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${ProjectName}-task-execution-role-policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - ecr:GetLifecyclePolicyPreview
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+              - ecr:DescribeImages
+              - ecr:ListTagsForResource
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetLifecyclePolicy
+              - ecr:GetRepositoryPolicy
+            Resource: !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/*"
+          - Effect: Allow
+            Action:
+              - ecr:GetAuthorizationToken
+              - ssm:GetParameters
+              - secretsmanager:GetSecretValue
+            Resource:
+              - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*"
+      Roles:
+        - Ref: EcsTaskExecutionRole
+
+  # -------------------------------------
+  # アプリケーションに必要なロールを定義
+  # -------------------------------------
+  EcsTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+                - events.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceEventsRole
+      RoleName: !Sub ${ProjectName}-task-role
+
+  EcsTaskRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub ${ProjectName}-task-role-policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: !Ref AllowEcsPolicy
+            Resource: "*"
+      Roles:
+        - Ref: EcsTaskRole
+
+  # -------------------------------------
+  # Fargate タスク定義
+  # -------------------------------------
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref ProjectName
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: !Ref TaskCpu
+      Memory: !Ref TaskMemory
+      NetworkMode: awsvpc
+      ExecutionRoleArn: !GetAtt EcsTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt EcsTaskRole.Arn
+      ContainerDefinitions:
+        - Name: app
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${Repository}:latest
+          PortMappings:
+            - ContainerPort: 80
+              HostPort: 80
+              Protocol: tcp
+          Environment:
+            - Name: TZ
+              Value: Asia/Tokyo
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref "AWS::Region"
+              awslogs-group: !Ref LogGroup
+              awslogs-stream-prefix: app
+          Essential: true
+
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref Cluster
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DesiredCount: !Ref DesiredCount
+      LaunchType: FARGATE
+      LoadBalancers:
+        - ContainerName: app
+          ContainerPort: 80
+          TargetGroupArn: { "Fn::ImportValue": !Sub "${Stage}-TargetGroupArn" }
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - { "Fn::ImportValue": !Sub "${Stage}-FargateSecurityGroupName" }
+          Subnets: 
+            - { "Fn::ImportValue": !Sub "${Stage}-MainPublicSubnetId" }
+      ServiceName: !Ref ProjectName
+      TaskDefinition: !Ref TaskDefinition
+
+Outputs:
+  ECRRepositoryName:
+    Value: !Ref Repository
+    Export:
+      Name: !Sub "${Stage}-ECRRepositoryName"
+  ECSClusteryName:
+    Value: !Ref Cluster
+    Export:
+      Name: !Sub "${Stage}-ECSClusterName"
+  ECSServiceName:
+    Value: !Ref Service
+    Export:
+      Name: !Sub "${Stage}-ECSServiceName"

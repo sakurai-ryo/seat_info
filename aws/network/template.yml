@@ -1,0 +1,267 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  Stage:
+    Description: Stage
+    Type: String
+    AllowedValues:
+      - dev
+      - stg
+      - rls
+  ProjectName:
+    Type: String
+    Default: SeatInfo
+  VpcCidrBlock:
+    Description: IPv4 CidrBlock
+    Type: String
+  AZa:
+    Description: AZ
+    Type: AWS::EC2::AvailabilityZone::Name
+  AZb:
+    Description: AZ
+    Type: AWS::EC2::AvailabilityZone::Name
+  MainPublicSubnetCidrBlock:
+    Description: Public Subnet IPv4 CidrBlock
+    Type: String
+  SubPublicSubnetCidrBlock:
+    Description: Public Subnet IPv4 CidrBlock
+    Type: String
+ 
+Resources:
+ # -------------------------------------
+ # VPC
+ # -------------------------------------
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties: 
+      CidrBlock: !Ref VpcCidrBlock
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags: 
+        - Key: Stage
+          Value: !Ref Stage
+
+ # -------------------------------------
+ # Subnet
+ # -------------------------------------
+  MainPublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: !Ref AZa
+      CidrBlock: !Ref MainPublicSubnetCidrBlock
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref VPC
+      Tags: 
+        - Key: Stage
+          Value: !Ref Stage
+
+  SubPublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties: 
+      AvailabilityZone: !Ref AZb
+      CidrBlock: !Ref SubPublicSubnetCidrBlock
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref VPC
+      Tags: 
+        - Key: Stage
+          Value: !Ref Stage
+
+ # -------------------------------------
+ # Internet Gateway
+ # -------------------------------------
+  MainInternetGW:
+    Type: AWS::EC2::InternetGateway
+    Properties: 
+      Tags: 
+        - Key: Stage
+          Value: !Ref Stage
+
+  MainVPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      InternetGatewayId: !Ref MainInternetGW
+      VpcId: !Ref VPC
+
+  # SubInternetGW:
+  #   Type: AWS::EC2::InternetGateway
+  #   Properties: 
+  #     Tags: 
+  #       - Key: Stage
+  #         Value: !Ref Stage
+
+  # SubVPCGatewayAttachment:
+  #   Type: AWS::EC2::VPCGatewayAttachment
+  #   Properties: 
+  #     InternetGatewayId: !Ref SubInternetGW
+  #     VpcId: !Ref VPC
+
+ # -------------------------------------
+ # Route Table
+ # -------------------------------------
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref VPC
+      Tags: 
+        - Key: Stage
+          Value: !Ref Stage
+
+  MainPublicRoute:
+    Type: AWS::EC2::Route
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref MainInternetGW
+      RouteTableId: !Ref RouteTable
+
+  MainSubnetRouteTableAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties: 
+        RouteTableId: !Ref RouteTable
+        SubnetId: !Ref MainPublicSubnet
+
+  # SubPublicRoute:
+  #   Type: AWS::EC2::Route
+  #   Properties: 
+  #     DestinationCidrBlock: 0.0.0.0/0
+  #     GatewayId: !Ref MainInternetGW
+  #     RouteTableId: !Ref RouteTable
+
+  # SubSubnetRouteTableAssociation:
+  #     Type: AWS::EC2::SubnetRouteTableAssociation
+  #     Properties: 
+  #       RouteTableId: !Ref RouteTable
+  #       SubnetId: !Ref SubPublicSubnet
+
+  # -------------------------------------
+  # 外からのアクセスを許可するSG、ALBにアタッチ
+  # -------------------------------------
+  AllowFromWeb:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub allow-from-web-for-${ProjectName}
+      GroupDescription: Security group for the service
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        -
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        -
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub allow-from-web-for-${ProjectName}
+
+  # AllowFromWebIngress:
+  #   Type: AWS::EC2::SecurityGroupIngress
+  #   Properties:
+  #     GroupId: !Ref AllowFromWeb
+  #     IpProtocol: -1 # -1だとtcp、udp、icmp、icmpv6の全部を指定する
+  #     SourceSecurityGroupId: !Ref AllowFromWeb
+
+  # -------------------------------------
+  # LBとFargateの通信を許可するSG
+  # -------------------------------------
+  FargateSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub fargate-${ProjectName}
+      GroupDescription: Security group for the service
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !GetAtt AllowFromWeb.GroupId # ALBからの通信のみ許可
+          # GroupId: !GetAtt AllowFromWeb.GroupId
+      Tags:
+        - Key: Name
+          Value: !Ref ProjectName
+
+  # SecurityGroupIngress:
+  #   Type: AWS::EC2::SecurityGroupIngress
+  #   Properties:
+  #     GroupId: !Ref FargateSecurityGroup
+  #     IpProtocol: -1 # -1だとtcp、udp、icmp、icmpv6の全部を指定する
+  #     SourceSecurityGroupId: !Ref FargateSecurityGroup
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${ProjectName}-alb
+      Scheme: internet-facing
+      Subnets: 
+        - !Ref MainPublicSubnet 
+        - !Ref SubPublicSubnet
+      Type: application
+      SecurityGroups:
+        - !Ref FargateSecurityGroup
+        - !Ref AllowFromWeb
+
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            ContentType: text/plain
+            StatusCode: 503
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /
+      HealthCheckPort: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 6
+      HealthyThresholdCount: 3
+      Name: !Ref ProjectName
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 3
+      TargetType: ip
+      VpcId: !Ref VPC
+
+  ListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+          Order: 1
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - "*"
+      ListenerArn: !Ref HttpListener
+      Priority: 100
+
+Outputs:
+  FargateSecurityGroupName:
+    Value: !Ref FargateSecurityGroup
+    Export:
+      Name: !Sub "${Stage}-FargateSecurityGroupName"
+
+  MainSubnetId:
+    Value: !Ref MainPublicSubnet
+    Export:
+      Name: !Sub "${Stage}-MainPublicSubnetId"
+
+  ALBArn:
+    Value: !Ref LoadBalancer
+    Export:
+      Name: !Sub "${Stage}-ALBArn"
+
+  TargetGroupArn:
+    Value: !Ref TargetGroup
+    Export:
+      Name: !Sub "${Stage}-TargetGroupArn"

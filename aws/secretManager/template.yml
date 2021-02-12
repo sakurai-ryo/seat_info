@@ -1,0 +1,21 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  Stage:
+    Description: Stage
+    Type: String
+    AllowedValues:
+      - dev
+      - stg
+      - rls
+
+
+Resources:
+  # -------------------------------------
+  # Secret Manager
+  # -------------------------------------
+  SecretManager:
+    Type: AWS::SecretsManager::Secret
+    Properties: 
+      Description: SeatInfo Project Secret
+      Name: !Sub "${Stage}-SeatInto-Secret"

@@ -3,13 +3,39 @@
 ## ディレクトリ
 ```
 .
-├── controller
-├── middleware
-├── model
-    ├── seatInfo.go
-├── service
-├── shared
-└── main.go
+├── README.md
+├── app
+│   ├── Dockerfile
+│   ├── controller
+│   ├── go.mod
+│   ├── go.sum
+│   ├── main.go
+│   ├── middleware
+│   ├── model
+│   ├── service
+│   ├── shared
+│   │   ├── weakday.go
+│   │   └── weakday_test.go
+│   └── templates
+│       ├── close
+│       │   └── inde.html
+│       └── open
+│           └── index.html
+├── app_deploy.sh
+├── aws
+│   ├── codePipeline
+│   │   └── template.yml
+│   ├── codeStarConnection
+│   │   └── template.yml
+│   ├── fargate
+│   │   └── template.yml
+│   ├── network
+│   │   └── template.yml
+│   ├── secretManager
+│   │   └── template.yml
+│   └── waf
+│       └── template.yml
+└── cicd_deploy.sh
 ```
 
 ## 使用技術
@@ -18,6 +44,9 @@
 - AWS
   - Cloud Formation (sls or samでも)
     - Fargate
+    - ALB
+    - WAF
     - DynamoDB
-    - CodePipeline (code Buildしか使わないからなくてもいいかも)
+    - CodePipeline
+      - Github
       - CodeBuild
