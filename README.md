@@ -60,8 +60,8 @@ $ git clone https://github.com/aws/aws-codebuild-docker-images.git
 ```
 2. ビルド
 ```shell
-$ cd aws-codebuild-docker-images/ubuntu/unsupported_images/golang/1.11
-$ docker build -t aws/codebuild/golang:1.11 .
+$ cd aws-codebuild-docker-images/ubuntu/unsupported_images/docker/18.09.0
+$ docker build -t aws/codebuild/docker18.09.0 .
 ```
 3. app以下にbuildspec.yml作成
 4. コンテナエージェントのプル
@@ -70,5 +70,5 @@ $ docker pull amazon/aws-codebuild-local:latest --disable-content-trust=false
 ```
 4. local build実行
 ```shell
-$ ❯ ./codebuild_build.sh -i seat-info-repository -a tmp
+$ ./codebuild_build.sh -i seat-info-repository -a tmp
 ```
