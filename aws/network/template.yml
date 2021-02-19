@@ -26,7 +26,13 @@ Parameters:
   SubPublicSubnetCidrBlock:
     Description: Public Subnet IPv4 CidrBlock
     Type: String
- 
+  HostZoneId:
+    Type: String
+    Default: Z02449942QK2DT09OIX89
+  DomainName:
+    Type: String
+    Default: 10do-seat-info.com
+
 Resources:
  # -------------------------------------
  # VPC
@@ -193,7 +199,7 @@ Resources:
   LoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: !Sub ${ProjectName}-alb
+      Name: !Sub ${Stage}-${ProjectName}-alb
       Scheme: internet-facing
       Subnets: 
         - !Ref MainPublicSubnet 
@@ -207,13 +213,25 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       DefaultActions:
-        - Type: fixed-response
+        - Type: fixed-response # この辺適当
           FixedResponseConfig:
             ContentType: text/plain
             StatusCode: 503
-      LoadBalancerArn: !Ref LoadBalancer
       Port: 80
       Protocol: HTTP
+      LoadBalancerArn: !Ref LoadBalancer
+
+  HttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref ACM
+      DefaultActions: # この辺適当、503とかの方がいいかも
+        - TargetGroupArn: !Ref TargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref LoadBalancer
 
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -244,6 +262,29 @@ Resources:
             - "*"
       ListenerArn: !Ref HttpListener
       Priority: 100
+
+  # -------------------------------------
+  # Route53
+  # -------------------------------------
+  DnsRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Sub ${HostZoneId}
+      Comment: "DNS for ALB"
+      Name: !Sub ${Stage}-${ProjectName}-route53
+      Type: A
+      AliasTarget:
+        HostedZoneId: !GetAtt 'LoadBalancer.CanonicalHostedZoneID'
+        DNSName: !GetAtt 'LoadBalancer.DNSName'
+
+  ACM:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Sub ${Stage}-${ProjectName}-acm
+      DomainValidationOptions:
+        - DomainName: !Sub ${DomainName}
+          HostedZoneId: !Sub ${HostZoneId}
+      ValidationMethod: DNS
 
 Outputs:
   FargateSecurityGroupName:
