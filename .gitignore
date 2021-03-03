@@ -17,3 +17,5 @@
 # vendor/
 
 app/go.sum
+
+aws-codebuild-docker-images
