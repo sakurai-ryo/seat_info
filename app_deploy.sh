@@ -64,7 +64,7 @@ aws cloudformation deploy \
 echo "---------- SecretManager Stack ----------"
 # SecretManager Stack
 aws cloudformation deploy \
-    --stack-name "${stage}-${ProjectName}-secret-manager" \
+    --stack-name "${Stage}-${ProjectName}-secret-manager" \
     --template-file aws/secretManager/template.yml \
     --parameter-overrides \
       Stage=${Stage}
@@ -78,7 +78,7 @@ fi
 echo "DesiredCount: ${DesiredCount}"
 # Fargate Stack
 aws cloudformation deploy \
-    --stack-name "${stage}-${ProjectName}-fargate" \
+    --stack-name "${Stage}-${ProjectName}-fargate" \
     --template-file aws/fargate/template.yml \
     --capabilities CAPABILITY_NAMED_IAM \
     --parameter-overrides \
