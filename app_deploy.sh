@@ -41,6 +41,7 @@ echo "---------- Network Stack ----------"
 aws cloudformation deploy \
     --stack-name "${stage}-SeatInfo-network" \
     --template-file aws/network/template.yml \
+    --capabilities CAPABILITY_NAMED_IAM \
     --parameter-overrides \
         AZa=ap-northeast-1a \
         AZb=ap-northeast-1c \

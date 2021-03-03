@@ -33,6 +33,11 @@ Parameters:
     Type: String
     Default: 10do-seat-info.com
 
+Mappings:
+  ALBAccountID:
+    ap-northeast-1:
+      ID: "582318560864"
+
 Resources:
  # -------------------------------------
  # VPC
@@ -69,6 +74,59 @@ Resources:
       CidrBlock: !Ref SubPublicSubnetCidrBlock
       MapPublicIpOnLaunch: true
       VpcId: !Ref VPC
+      Tags: 
+        - Key: Stage
+          Value: !Ref Stage
+
+ # -------------------------------------
+ # VPC Flow Log
+ # -------------------------------------
+
+  VpcFlowLogsLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub ${Stage}-${ProjectName}-vpc-flowlogs
+      RetentionInDays: 180
+
+  VpcFlowLogsIamRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub ${Stage}-${ProjectName}-flowlogs-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "vpc-flow-logs.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: !Sub ${Stage}-${ProjectName}-flowlogs-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:DescribeLogGroups"
+                  - "logs:DescribeLogStreams"
+                Resource: !GetAtt VpcFlowLogsLogGroup.Arn
+
+  VPCFlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties: 
+      DeliverLogsPermissionArn: !GetAtt VpcFlowLogsIamRole.Arn
+      # LogDestination: String
+      LogDestinationType: "cloud-watch-logs"
+      # LogFormat: String
+      LogGroupName: !Ref VpcFlowLogsLogGroup
+      MaxAggregationInterval: 60
+      ResourceId: !Ref VPC
+      ResourceType: "VPC"
+      TrafficType: "ALL"
       Tags: 
         - Key: Stage
           Value: !Ref Stage
@@ -196,39 +254,62 @@ Resources:
   #     IpProtocol: -1 # -1だとtcp、udp、icmp、icmpv6の全部を指定する
   #     SourceSecurityGroupId: !Ref FargateSecurityGroup
 
-  ALBS3Log:
+  ALBS3LogBucket:
     Type: "AWS::S3::Bucket"
     Properties:
       BucketName: !Sub "${Stage}-seat-info-alb-logs"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
 
+  # 参考: https://docs.aws.amazon.com/ja_jp/elasticloadbalancing/latest/application/load-balancer-access-logs.html#enable-access-logging
   ALBS3LogPolicy:
     Type: "AWS::S3::BucketPolicy"
     Properties:
-      Bucket: !Ref ALBS3Log
+      Bucket: !Ref ALBS3LogBucket
       PolicyDocument:
+        Id: !Sub "${Stage}-${ProjectName}-Alb-Bucket-Policy"
+        Version: "2012-10-17"
         Statement:
-          - Action:
+          - Sid: ALBLogACL
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Action:
               - "s3:GetBucketAcl"
-            Effect: "Allow"
-            Resource: !Ref ALBS3Log
+            Resource: !GetAtt ALBS3LogBucket.Arn
+          - Sid: ALBLogDelivery
+            Effect: Allow
             Principal:
-              Service: !Ref LoadBalancer
-          - Action:
+              AWS: 
+                !Join
+                  - ""
+                  - - "arn:aws:iam::"
+                    - !FindInMap
+                      - ALBAccountID
+                      - !Ref "AWS::Region"
+                      - ID
+                    - ":root"
+            Action:
               - "s3:PutObject"
-            Effect: "Allow"
-            Resource: !Ref ALBS3Log
-            Principal:
-              Service: !Ref LoadBalancer
-          - Action:
-              - "s3:*"
-            Effect: "Allow"
-            Resource: !Ref ALBS3Log
-            Principal:
-              AWS: !Join
+            Resource: 
+              !Join
                 - ""
-                - - "arn:aws:iam::"
-                  - !Ref "AWS::AccountId"
-                  - ":*"
+                - - !GetAtt ALBS3LogBucket.Arn
+                  - "/*"
+          - Sid: ALBLogDeliveryService
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Action:
+              - "s3:PutObject"
+            Resource:
+              !Join
+                - ""
+                - - !GetAtt ALBS3LogBucket.Arn
+                  - "/*"
 
   LoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
@@ -239,9 +320,9 @@ Resources:
         - Key: access_logs.s3.enabled
           Value: "true"
         - Key: access_logs.s3.bucket
-          Value: !Ref ALBS3Log
+          Value: !Ref ALBS3LogBucket
         - Key: access_logs.s3.prefix 
-          Value: !Sub "seat-info-alb/${Stage}"
+          Value: !Sub "${Stage}-seat-info-alb"
       Subnets: 
         - !Ref MainPublicSubnet 
         - !Ref SubPublicSubnet
