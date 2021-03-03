@@ -10,17 +10,19 @@ EOM
   exit 2
 }
 
-stage=""
+Stage=""
 
 while getopts s:h: OPT
 do
   case $OPT in
-    "s" ) stage=$OPTARG;;
+    "s" ) Stage=$OPTARG;;
     '-h'|'--help'|* ) usage;;
   esac
 done
 
-echo "DeployStage: ${stage}"
+echo "DeployStage: ${Stage}"
+
+ProjectName="SeatInfo"
 
 # CHANGESET_OPTION="--no-execute-changeset"
 
@@ -31,7 +33,7 @@ echo "DeployStage: ${stage}"
 # fi
 
 # CFN_TEMPLATE=template.yml
-# CFN_STACK_NAME=SeatInfo
+# CFN_STACK_NAME=ProjectName
 
 
 # TODO: Deploy時のパラメーターは環境変数とかにする
@@ -39,7 +41,7 @@ echo "DeployStage: ${stage}"
 echo "---------- Network Stack ----------"
 # Network Stack
 aws cloudformation deploy \
-    --stack-name "${stage}-SeatInfo-network" \
+    --stack-name "${Stage}-${ProjectName}-network" \
     --template-file aws/network/template.yml \
     --capabilities CAPABILITY_NAMED_IAM \
     --parameter-overrides \
@@ -48,32 +50,38 @@ aws cloudformation deploy \
         VpcCidrBlock=192.168.0.0/16 \
         MainPublicSubnetCidrBlock=192.168.1.0/24 \
         SubPublicSubnetCidrBlock=192.168.2.0/24 \
-        Stage=${stage}
+        Stage=${Stage}
 
 echo "---------- WAF Stack ----------"
 # WAF Stack
 aws cloudformation deploy \
-    --stack-name "${stage}-SeatInfo-waf" \
+    --stack-name "${Stage}-${ProjectName}-waf" \
     --template-file aws/waf/template.yml \
     --capabilities CAPABILITY_NAMED_IAM \
     --parameter-overrides \
-        Stage=${stage}
+        Stage=${Stage}
 
 echo "---------- SecretManager Stack ----------"
 # SecretManager Stack
 aws cloudformation deploy \
-    --stack-name "${stage}-SeatInfo-secret-manager" \
+    --stack-name "${Stage}-${ProjectName}-secret-manager" \
     --template-file aws/secretManager/template.yml \
     --parameter-overrides \
-      Stage=${stage}
+      Stage=${Stage}
 
 echo "---------- Fargate Stack ----------"
+DesiredCount=0
+ExistService=$(aws ecs list-task-definitions --region ap-northeast-1 | jq '.taskDefinitionArns[] | select(contains("SeatInfo"))')
+if [ -n "$ExistService" ]; then
+  DesiredCount=1
+fi
+echo "DesiredCount: ${DesiredCount}"
 # Fargate Stack
 aws cloudformation deploy \
-    --stack-name "${stage}-SeatInfo-fargate" \
+    --stack-name "${Stage}-${ProjectName}-fargate" \
     --template-file aws/fargate/template.yml \
     --capabilities CAPABILITY_NAMED_IAM \
     --parameter-overrides \
-      ProjectName=SeatInfo \
-      DesiredCount=1 \
-      Stage=${stage}
+      ProjectName=${ProjectName} \
+      DesiredCount=${DesiredCount} \
+      Stage=${Stage}

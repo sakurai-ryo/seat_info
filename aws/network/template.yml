@@ -221,20 +221,13 @@ Resources:
         - Key: Name
           Value: !Sub allow-from-web-for-${ProjectName}
 
-  # AllowFromWebIngress:
-  #   Type: AWS::EC2::SecurityGroupIngress
-  #   Properties:
-  #     GroupId: !Ref AllowFromWeb
-  #     IpProtocol: -1 # -1だとtcp、udp、icmp、icmpv6の全部を指定する
-  #     SourceSecurityGroupId: !Ref AllowFromWeb
-
   # -------------------------------------
-  # LBとFargateの通信を許可するSG
+  # ALBとFargateの通信を許可するSG
   # -------------------------------------
   FargateSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: !Sub fargate-${ProjectName}
+      GroupName: !Sub ${Stage}-${ProjectName}-fargate
       GroupDescription: Security group for the service
       VpcId: !Ref VPC
       SecurityGroupIngress:
@@ -246,13 +239,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Ref ProjectName
-
-  # SecurityGroupIngress:
-  #   Type: AWS::EC2::SecurityGroupIngress
-  #   Properties:
-  #     GroupId: !Ref FargateSecurityGroup
-  #     IpProtocol: -1 # -1だとtcp、udp、icmp、icmpv6の全部を指定する
-  #     SourceSecurityGroupId: !Ref FargateSecurityGroup
 
   ALBS3LogBucket:
     Type: "AWS::S3::Bucket"
@@ -331,28 +317,32 @@ Resources:
         - !Ref FargateSecurityGroup
         - !Ref AllowFromWeb
 
-  # HttpListener:
-  #   Type: AWS::ElasticLoadBalancingV2::Listener
-  #   Properties:
-  #     DefaultActions:
-  #       - Type: fixed-response # この辺適当
-  #         FixedResponseConfig:
-  #           ContentType: text/plain
-  #           StatusCode: 503
-  #     Port: 80
-  #     Protocol: HTTP
-  #     LoadBalancerArn: !Ref LoadBalancer
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      Port: 80
+      Protocol: HTTP
+      DefaultActions: # この辺適当、503とかの方がいいかも
+        - RedirectConfig:
+            Host: '#{host}'
+            Path: /#{path}
+            Port: '443'
+            Protocol: HTTPS
+            Query: '#{query}'
+            StatusCode: HTTP_301
+          Type: redirect
+      LoadBalancerArn: !Ref LoadBalancer
 
   HttpsListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
-      Port: 443
-      Protocol: HTTPS
       Certificates:
         - CertificateArn: !Ref ACM
-      DefaultActions: # この辺適当、503とかの方がいいかも
+      DefaultActions:
         - TargetGroupArn: !Ref TargetGroup
           Type: forward
+      Port: 443
+      Protocol: HTTPS
       LoadBalancerArn: !Ref LoadBalancer
 
   TargetGroup:
@@ -371,7 +361,21 @@ Resources:
       TargetType: ip
       VpcId: !Ref VPC
 
-  ListenerRule:
+  HTTPListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+          Order: 1
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - "*"
+      ListenerArn: !Ref HttpListener
+      Priority: 2
+
+  HTTPsListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
       Actions:
@@ -383,7 +387,7 @@ Resources:
           Values:
             - "*"
       ListenerArn: !Ref HttpsListener
-      Priority: 100
+      Priority: 1
 
   # -------------------------------------
   # Route53
