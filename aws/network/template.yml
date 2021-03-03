@@ -196,11 +196,52 @@ Resources:
   #     IpProtocol: -1 # -1だとtcp、udp、icmp、icmpv6の全部を指定する
   #     SourceSecurityGroupId: !Ref FargateSecurityGroup
 
+  ALBS3Log:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub "${Stage}-seat-info-alb-logs"
+
+  ALBS3LogPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref ALBS3Log
+      PolicyDocument:
+        Statement:
+          - Action:
+              - "s3:GetBucketAcl"
+            Effect: "Allow"
+            Resource: !Ref ALBS3Log
+            Principal:
+              Service: !Ref LoadBalancer
+          - Action:
+              - "s3:PutObject"
+            Effect: "Allow"
+            Resource: !Ref ALBS3Log
+            Principal:
+              Service: !Ref LoadBalancer
+          - Action:
+              - "s3:*"
+            Effect: "Allow"
+            Resource: !Ref ALBS3Log
+            Principal:
+              AWS: !Join
+                - ""
+                - - "arn:aws:iam::"
+                  - !Ref "AWS::AccountId"
+                  - ":*"
+
   LoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Name: !Sub ${Stage}-${ProjectName}-alb
       Scheme: internet-facing
+      LoadBalancerAttributes: 
+        - Key: access_logs.s3.enabled
+          Value: "true"
+        - Key: access_logs.s3.bucket
+          Value: !Ref ALBS3Log
+        - Key: access_logs.s3.prefix 
+          Value: !Sub "seat-info-alb/${Stage}"
       Subnets: 
         - !Ref MainPublicSubnet 
         - !Ref SubPublicSubnet
@@ -209,17 +250,17 @@ Resources:
         - !Ref FargateSecurityGroup
         - !Ref AllowFromWeb
 
-  HttpListener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      DefaultActions:
-        - Type: fixed-response # この辺適当
-          FixedResponseConfig:
-            ContentType: text/plain
-            StatusCode: 503
-      Port: 80
-      Protocol: HTTP
-      LoadBalancerArn: !Ref LoadBalancer
+  # HttpListener:
+  #   Type: AWS::ElasticLoadBalancingV2::Listener
+  #   Properties:
+  #     DefaultActions:
+  #       - Type: fixed-response # この辺適当
+  #         FixedResponseConfig:
+  #           ContentType: text/plain
+  #           StatusCode: 503
+  #     Port: 80
+  #     Protocol: HTTP
+  #     LoadBalancerArn: !Ref LoadBalancer
 
   HttpsListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -242,7 +283,7 @@ Resources:
       HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 6
       HealthyThresholdCount: 3
-      Name: !Ref ProjectName
+      Name: !Sub ${Stage}-${ProjectName}-target-group
       Port: 80
       Protocol: HTTP
       UnhealthyThresholdCount: 3
@@ -260,7 +301,7 @@ Resources:
         - Field: path-pattern
           Values:
             - "*"
-      ListenerArn: !Ref HttpListener
+      ListenerArn: !Ref HttpsListener
       Priority: 100
 
   # -------------------------------------
@@ -271,7 +312,7 @@ Resources:
     Properties:
       HostedZoneId: !Sub ${HostZoneId}
       Comment: "DNS for ALB"
-      Name: !Sub ${Stage}-${ProjectName}-route53
+      Name: !Sub ${DomainName}
       Type: A
       AliasTarget:
         HostedZoneId: !GetAtt 'LoadBalancer.CanonicalHostedZoneID'
@@ -280,7 +321,7 @@ Resources:
   ACM:
     Type: AWS::CertificateManager::Certificate
     Properties:
-      DomainName: !Sub ${Stage}-${ProjectName}-acm
+      DomainName: !Sub ${DomainName}
       DomainValidationOptions:
         - DomainName: !Sub ${DomainName}
           HostedZoneId: !Sub ${HostZoneId}
