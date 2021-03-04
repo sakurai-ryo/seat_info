@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +13,24 @@ func main() {
 	// engine.LoadHTMLGlob("templates/*.html")
 	// today := time.Date(2021, 2, 14, 12, 5, 6, 0, time.Local)
 	engine.GET("/", func(c *gin.Context) {
+		if res, err := json.Marshal(&c.Request.Header); err != nil {
+			log.Print(err)
+		} else {
+			log.Print(string(res))
+		}
+
+		if res, err := json.Marshal(&c.Request.URL); err != nil {
+			log.Print(err)
+		} else {
+			log.Print(string(res))
+		}
+
+		if res, err := json.Marshal(&c.Request.Body); err != nil {
+			log.Print(err)
+		} else {
+			log.Print(string(res))
+		}
+
 		// var path string
 		// if shared.IsOpen(today) {
 		// 	path = "open/index.html"
