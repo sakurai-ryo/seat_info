@@ -121,6 +121,7 @@ Resources:
                   - codebuild:BatchGet*
                   - codebuild:Get*
                   - codebuild:List*
+                  - codecommit:GitPull
                   - codecommit:GetBranch
                   - codecommit:GetCommit
                   - s3:*
@@ -211,7 +212,7 @@ Resources:
                 ConnectionArn: {"Fn::ImportValue": !Sub "${Stage}-${ProjectName}-Github-Connection"}
                 FullRepositoryId: !Ref RepositoryName
                 BranchName: !Ref BranchName
-                OutputArtifactFormat: 'CODE_ZIP'
+                OutputArtifactFormat: 'CODEBUILD_CLONE_REF'
               RunOrder: 1
               OutputArtifacts:
                 - Name: App
