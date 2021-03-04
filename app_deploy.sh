@@ -67,6 +67,12 @@ aws cloudformation deploy \
       Stage=${stage}
 
 echo "---------- Fargate Stack ----------"
+DesiredCount=0
+ExistService=$(aws ecs list-task-definitions --region ap-northeast-1 | jq '.taskDefinitionArns[] | select(contains("SeatInfo"))')
+if [ -n "$ExistService" ]; then
+  DesiredCount=2
+fi
+echo "DesiredCount: ${DesiredCount}"
 # Fargate Stack
 aws cloudformation deploy \
     --stack-name "${stage}-SeatInfo-fargate" \
