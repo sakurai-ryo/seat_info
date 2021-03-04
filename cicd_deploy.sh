@@ -53,4 +53,4 @@ aws cloudformation deploy \
     --capabilities CAPABILITY_NAMED_IAM \
     --parameter-overrides \
         Stage=${stage} \
-        BranchName=master
+        BranchName=fix/codebuild#7
