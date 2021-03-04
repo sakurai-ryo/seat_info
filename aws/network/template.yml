@@ -43,6 +43,22 @@ Resources:
           Value: !Ref Stage
 
  # -------------------------------------
+ # Internet Gateway
+ # -------------------------------------
+  InternetGW:
+    Type: AWS::EC2::InternetGateway
+    Properties: 
+      Tags: 
+        - Key: Stage
+          Value: !Ref Stage
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      InternetGatewayId: !Ref InternetGW
+      VpcId: !Ref VPC
+
+ # -------------------------------------
  # Subnet
  # -------------------------------------
   MainPublicSubnet:
@@ -68,38 +84,69 @@ Resources:
           Value: !Ref Stage
 
  # -------------------------------------
- # Internet Gateway
+ # VPC Flow Log
  # -------------------------------------
-  MainInternetGW:
-    Type: AWS::EC2::InternetGateway
+  VpcFlowLogsLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub ${Stage}-${ProjectName}-vpc-flowlogs
+      RetentionInDays: 180
+
+  VpcFlowLogsIamRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub ${Stage}-${ProjectName}-flowlogs-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "vpc-flow-logs.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: !Sub ${Stage}-${ProjectName}-flowlogs-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:DescribeLogGroups"
+                  - "logs:DescribeLogStreams"
+                Resource: !GetAtt VpcFlowLogsLogGroup.Arn
+
+  VPCFlowLog:
+    Type: AWS::EC2::FlowLog
     Properties: 
+      DeliverLogsPermissionArn: !GetAtt VpcFlowLogsIamRole.Arn
+      # LogDestination: String
+      LogDestinationType: "cloud-watch-logs"
+      # LogFormat: String
+      LogGroupName: !Ref VpcFlowLogsLogGroup
+      MaxAggregationInterval: 60
+      ResourceId: !Ref VPC
+      ResourceType: "VPC"
+      TrafficType: "ALL"
       Tags: 
         - Key: Stage
           Value: !Ref Stage
 
-  MainVPCGatewayAttachment:
-    Type: AWS::EC2::VPCGatewayAttachment
-    Properties: 
-      InternetGatewayId: !Ref MainInternetGW
-      VpcId: !Ref VPC
-
-  # SubInternetGW:
-  #   Type: AWS::EC2::InternetGateway
-  #   Properties: 
-  #     Tags: 
-  #       - Key: Stage
-  #         Value: !Ref Stage
-
-  # SubVPCGatewayAttachment:
-  #   Type: AWS::EC2::VPCGatewayAttachment
-  #   Properties: 
-  #     InternetGatewayId: !Ref SubInternetGW
-  #     VpcId: !Ref VPC
-
  # -------------------------------------
  # Route Table
  # -------------------------------------
-  RouteTable:
+  MainRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      VpcId: !Ref VPC
+      Tags: 
+        - Key: Stage
+          Value: !Ref Stage
+
+  SubRouteTable:
     Type: AWS::EC2::RouteTable
     Properties: 
       VpcId: !Ref VPC
@@ -111,27 +158,27 @@ Resources:
     Type: AWS::EC2::Route
     Properties: 
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref MainInternetGW
-      RouteTableId: !Ref RouteTable
+      GatewayId: !Ref InternetGW
+      RouteTableId: !Ref MainRouteTable
 
   MainSubnetRouteTableAssociation:
       Type: AWS::EC2::SubnetRouteTableAssociation
       Properties: 
-        RouteTableId: !Ref RouteTable
+        RouteTableId: !Ref MainRouteTable
         SubnetId: !Ref MainPublicSubnet
 
-  # SubPublicRoute:
-  #   Type: AWS::EC2::Route
-  #   Properties: 
-  #     DestinationCidrBlock: 0.0.0.0/0
-  #     GatewayId: !Ref MainInternetGW
-  #     RouteTableId: !Ref RouteTable
+  SubPublicRoute:
+    Type: AWS::EC2::Route
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGW
+      RouteTableId: !Ref SubRouteTable
 
-  # SubSubnetRouteTableAssociation:
-  #     Type: AWS::EC2::SubnetRouteTableAssociation
-  #     Properties: 
-  #       RouteTableId: !Ref RouteTable
-  #       SubnetId: !Ref SubPublicSubnet
+  SubSubnetRouteTableAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties: 
+        RouteTableId: !Ref SubRouteTable
+        SubnetId: !Ref SubPublicSubnet
 
   # -------------------------------------
   # 外からのアクセスを許可するSG、ALBにアタッチ
@@ -230,6 +277,11 @@ Resources:
       UnhealthyThresholdCount: 3
       TargetType: ip
       VpcId: !Ref VPC
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: "5" # デプロイ時間短縮のため
+        # - Key: load_balancing.algorithm.type
+        #   Value: least_outstanding_requests # とりあえずラウンドロビンでいいか
 
   ListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
@@ -255,6 +307,11 @@ Outputs:
     Value: !Ref MainPublicSubnet
     Export:
       Name: !Sub "${Stage}-MainPublicSubnetId"
+
+  SubSubnetId:
+    Value: !Ref SubPublicSubnet
+    Export:
+      Name: !Sub "${Stage}-SubPublicSubnetId"
 
   ALBArn:
     Value: !Ref LoadBalancer

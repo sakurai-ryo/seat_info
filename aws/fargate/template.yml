@@ -176,6 +176,7 @@ Resources:
             - { "Fn::ImportValue": !Sub "${Stage}-FargateSecurityGroupName" }
           Subnets: 
             - { "Fn::ImportValue": !Sub "${Stage}-MainPublicSubnetId" }
+            - { "Fn::ImportValue": !Sub "${Stage}-SubPublicSubnetId" }
       ServiceName: !Ref ProjectName
       TaskDefinition: !Ref TaskDefinition
 
