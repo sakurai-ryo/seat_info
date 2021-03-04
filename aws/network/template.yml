@@ -26,7 +26,18 @@ Parameters:
   SubPublicSubnetCidrBlock:
     Description: Public Subnet IPv4 CidrBlock
     Type: String
- 
+  HostZoneId:
+    Type: String
+    Default: Z02449942QK2DT09OIX89
+  DomainName:
+    Type: String
+    Default: 10do-seat-info.com
+
+Mappings:
+  ALBAccountID:
+    ap-northeast-1:
+      ID: "582318560864"
+
 Resources:
  # -------------------------------------
  # VPC
@@ -204,20 +215,13 @@ Resources:
         - Key: Name
           Value: !Sub allow-from-web-for-${ProjectName}
 
-  # AllowFromWebIngress:
-  #   Type: AWS::EC2::SecurityGroupIngress
-  #   Properties:
-  #     GroupId: !Ref AllowFromWeb
-  #     IpProtocol: -1 # -1だとtcp、udp、icmp、icmpv6の全部を指定する
-  #     SourceSecurityGroupId: !Ref AllowFromWeb
-
   # -------------------------------------
-  # LBとFargateの通信を許可するSG
+  # ALBとFargateの通信を許可するSG
   # -------------------------------------
   FargateSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: !Sub fargate-${ProjectName}
+      GroupName: !Sub ${Stage}-${ProjectName}-fargate
       GroupDescription: Security group for the service
       VpcId: !Ref VPC
       SecurityGroupIngress:
@@ -230,18 +234,75 @@ Resources:
         - Key: Name
           Value: !Ref ProjectName
 
-  # SecurityGroupIngress:
-  #   Type: AWS::EC2::SecurityGroupIngress
-  #   Properties:
-  #     GroupId: !Ref FargateSecurityGroup
-  #     IpProtocol: -1 # -1だとtcp、udp、icmp、icmpv6の全部を指定する
-  #     SourceSecurityGroupId: !Ref FargateSecurityGroup
+  ALBS3LogBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub "${Stage}-seat-info-alb-logs"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # 参考: https://docs.aws.amazon.com/ja_jp/elasticloadbalancing/latest/application/load-balancer-access-logs.html#enable-access-logging
+  ALBS3LogPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref ALBS3LogBucket
+      PolicyDocument:
+        Id: !Sub "${Stage}-${ProjectName}-Alb-Bucket-Policy"
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ALBLogACL
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Action:
+              - "s3:GetBucketAcl"
+            Resource: !GetAtt ALBS3LogBucket.Arn
+          - Sid: ALBLogDelivery
+            Effect: Allow
+            Principal:
+              AWS: 
+                !Join
+                  - ""
+                  - - "arn:aws:iam::"
+                    - !FindInMap
+                      - ALBAccountID
+                      - !Ref "AWS::Region"
+                      - ID
+                    - ":root"
+            Action:
+              - "s3:PutObject"
+            Resource: 
+              !Join
+                - ""
+                - - !GetAtt ALBS3LogBucket.Arn
+                  - "/*"
+          - Sid: ALBLogDeliveryService
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Action:
+              - "s3:PutObject"
+            Resource:
+              !Join
+                - ""
+                - - !GetAtt ALBS3LogBucket.Arn
+                  - "/*"
 
   LoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: !Sub ${ProjectName}-alb
+      Name: !Sub ${Stage}-${ProjectName}-alb
       Scheme: internet-facing
+      LoadBalancerAttributes: 
+        - Key: access_logs.s3.enabled
+          Value: "true"
+        - Key: access_logs.s3.bucket
+          Value: !Ref ALBS3LogBucket
+        - Key: access_logs.s3.prefix 
+          Value: !Sub "${Stage}-seat-info-alb"
       Subnets: 
         - !Ref MainPublicSubnet 
         - !Ref SubPublicSubnet
@@ -253,14 +314,30 @@ Resources:
   HttpListener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
-      DefaultActions:
-        - Type: fixed-response
-          FixedResponseConfig:
-            ContentType: text/plain
-            StatusCode: 503
-      LoadBalancerArn: !Ref LoadBalancer
       Port: 80
       Protocol: HTTP
+      DefaultActions: # この辺適当、503とかの方がいいかも
+        - RedirectConfig:
+            Host: '#{host}'
+            Path: /#{path}
+            Port: '443'
+            Protocol: HTTPS
+            Query: '#{query}'
+            StatusCode: HTTP_301
+          Type: redirect
+      LoadBalancerArn: !Ref LoadBalancer
+
+  HttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      Certificates:
+        - CertificateArn: !Ref ACM
+      DefaultActions:
+        - TargetGroupArn: !Ref TargetGroup
+          Type: forward
+      Port: 443
+      Protocol: HTTPS
+      LoadBalancerArn: !Ref LoadBalancer
 
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -271,7 +348,7 @@ Resources:
       HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 6
       HealthyThresholdCount: 3
-      Name: !Ref ProjectName
+      Name: !Sub ${Stage}-${ProjectName}-target-group
       Port: 80
       Protocol: HTTP
       UnhealthyThresholdCount: 3
@@ -283,7 +360,7 @@ Resources:
         # - Key: load_balancing.algorithm.type
         #   Value: least_outstanding_requests # とりあえずラウンドロビンでいいか
 
-  ListenerRule:
+  HTTPListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
       Actions:
@@ -295,7 +372,44 @@ Resources:
           Values:
             - "*"
       ListenerArn: !Ref HttpListener
-      Priority: 100
+      Priority: 2
+
+  HTTPsListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+          Order: 1
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - "*"
+      ListenerArn: !Ref HttpsListener
+      Priority: 1
+
+  # -------------------------------------
+  # Route53
+  # -------------------------------------
+  DnsRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Sub ${HostZoneId}
+      Comment: "DNS for ALB"
+      Name: !Sub ${DomainName}
+      Type: A
+      AliasTarget:
+        HostedZoneId: !GetAtt 'LoadBalancer.CanonicalHostedZoneID'
+        DNSName: !GetAtt 'LoadBalancer.DNSName'
+
+  ACM:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Sub ${DomainName}
+      DomainValidationOptions:
+        - DomainName: !Sub ${DomainName}
+          HostedZoneId: !Sub ${HostZoneId}
+      ValidationMethod: DNS
 
 Outputs:
   FargateSecurityGroupName:
