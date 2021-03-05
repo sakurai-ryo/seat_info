@@ -44,7 +44,7 @@ Resources:
   DeliveryStream:
     Type: "AWS::KinesisFirehose::DeliveryStream"
     Properties:
-      DeliveryStreamName: !Sub waf-logs-${AWS::Region}-${Stage}-${ProjectName}-kinesis
+      DeliveryStreamName: !Sub aws-waf-logs-${AWS::Region}-${Stage}-${ProjectName}-kinesis
       DeliveryStreamType: DirectPut
       S3DestinationConfiguration:
         BucketARN: !GetAtt S3Backet.Arn
