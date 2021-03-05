@@ -27,7 +27,7 @@ echo "DeployStack: ${Target}"
 
 ProjectName="SeatInfo"
 
-if [ ${Target} == "" ]; then
+if [ -z ${Target} ]; then
   echo "TargetStack(-t)を指定してください"
   exit 1
 fi
