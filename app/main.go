@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"seat_info/shared"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,17 +12,18 @@ func main() {
 	engine := gin.Default()
 	// today := time.Date(2021, 2, 14, 12, 5, 6, 0, time.Local)
 	engine.LoadHTMLGlob("./templates/**/*")
-	today := time.Now()
+	engine.Static("/static", "./static")
+	// today := time.Now()
 	engine.GET("/", func(c *gin.Context) {
 		// logging(c)
 
-		var path string
-		if shared.IsOpen(today) {
-			path = "open/open.html"
-		} else {
-			path = "close/close.html"
-		}
-		c.HTML(http.StatusOK, path, gin.H{
+		// var path string
+		// if shared.IsOpen(today) {
+		// 	path = "open/open.html"
+		// } else {
+		// 	path = "close/close.html"
+		// }
+		c.HTML(http.StatusOK, "open/open.html", gin.H{
 			"message": "hello World",
 		})
 	})
