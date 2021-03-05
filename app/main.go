@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
-	"log"
-	"net/http"
+	"seat_info/controller"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,37 +13,7 @@ func main() {
 	engine.Static("/static", "./static")
 	// today := time.Now()
 	engine.GET("/", func(c *gin.Context) {
-		// logging(c)
-
-		// var path string
-		// if shared.IsOpen(today) {
-		// 	path = "open/open.html"
-		// } else {
-		// 	path = "close/close.html"
-		// }
-		c.HTML(http.StatusOK, "open/open.html", gin.H{
-			"message": "hello World",
-		})
+		controller.Controller(c)
 	})
 	engine.Run(":8080")
-}
-
-func logging(c *gin.Context) {
-	if res, err := json.Marshal(&c.Request.Header); err != nil {
-		log.Print(err)
-	} else {
-		log.Print(string(res))
-	}
-
-	if res, err := json.Marshal(&c.Request.URL); err != nil {
-		log.Print(err)
-	} else {
-		log.Print(string(res))
-	}
-
-	if res, err := json.Marshal(&c.Request.Body); err != nil {
-		log.Print(err)
-	} else {
-		log.Print(string(res))
-	}
 }
