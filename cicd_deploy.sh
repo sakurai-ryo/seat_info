@@ -50,7 +50,7 @@ if [ ${Target} = "all" ] || [ ${Target} = "connections" ]; then
     --stack-name "${Stage}-SeatInfo-codeStarConnection" \
     --template-file aws/codeStarConnection/template.yml \
     --parameter-overrides \
-    stage=${Stage}
+    Stage=${Stage}
 fi
 
 if [ ${Target} = "all" ] || [ ${Target} = "codepipeline" ]; then
@@ -61,6 +61,6 @@ if [ ${Target} = "all" ] || [ ${Target} = "codepipeline" ]; then
     --template-file aws/codePipeline/template.yml \
     --capabilities CAPABILITY_NAMED_IAM \
     --parameter-overrides \
-    stage=${Stage} \
+    Stage=${Stage} \
     BranchName=fix/codebuild#7
 fi
