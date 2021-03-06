@@ -88,7 +88,8 @@ func filter(result *Result) []string {
 	return seat
 }
 
-func Request() ([]string, error) {
+// もう少し関数細かくしたい
+func request() ([]string, error) {
 	u := os.Getenv("URL")
 	contractID := os.Getenv("CONTRACT_ID")
 	accessToken := os.Getenv("ACCESS_TOKEN")
