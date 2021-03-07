@@ -163,9 +163,9 @@ Resources:
                 - echo Build completed on `date`
                 - docker push $REPOSITORY_URI:latest
                 - docker push $REPOSITORY_URI:$IMAGE_TAG
-                - cd $DEFAULT
+                - echo "[{\"name\":\"${IMAGE_NAME}\",\"imageUri\":\"${REPOSITORY_URI}:${IMAGE_TAG}\"}]" > imagedefinitions.json
           artifacts:
-            files: ./app/imagedefinitions.json
+            files: ./imagedefinitions.json
           cache:
             paths:
               - app/**/*

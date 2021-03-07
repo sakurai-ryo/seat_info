@@ -15,5 +15,5 @@ func main() {
 	engine.GET("/", func(c *gin.Context) {
 		controller.Controller(c)
 	})
-	engine.Run(":8080")
+	engine.Run(":80")
 }
