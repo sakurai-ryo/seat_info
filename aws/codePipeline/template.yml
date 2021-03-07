@@ -162,7 +162,7 @@ Resources:
               commands:
                 - docker push $REPOSITORY_URI:latest
                 - docker push $REPOSITORY_URI:$IMAGE_TAG
-                - echo "{\"name\":\"${IMAGE_NAME}\",\"imageUri\":\"${REPOSITORY_URI}:${IMAGE_TAG}\"}" > imagedefinitions.json
+                - echo "[{\"name\":\"${IMAGE_NAME}\",\"imageUri\":\"${REPOSITORY_URI}:${IMAGE_TAG}\"}]" > imagedefinitions.json
           artifacts:
             files: ./imagedefinitions.json
           cache:
@@ -174,6 +174,8 @@ Resources:
         Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
         Type: LINUX_CONTAINER
         EnvironmentVariables:
+          - Name: IMAGE_NAME
+            Value: !Sub ${Stage}-seat-info-image
           - Name: AWS_DEFAULT_REGION
             Value: !Ref AWS::Region
           - Name: REPOSITORY_URI
