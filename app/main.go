@@ -18,6 +18,7 @@ func init() {
 }
 
 func main() {
+	gin.SetMode(gin.ReleaseMode)
 	engine := gin.Default()
 	engine.LoadHTMLGlob("./templates/**/*")
 	engine.Static("/static", "./static")
