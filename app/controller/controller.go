@@ -31,14 +31,13 @@ func Controller(c *gin.Context) {
 	// logging(c)
 
 	if !isOpen {
-		// seat, err := request()
+		res, err := request()
 		// res := []string{"a4", "b3", "a7", "a2", "b1", "1", "4", "a6", "a8", "D1", "10", "F1", "7", "b2", "a1", "a3", "C1", "8", "3", "E1"}
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-		// log.Print(seat)
-		var res Results
-		res = Results{{"a4", "2F-a"}, {"C1", "2F"}, {"b4", "2F-b"}, {"a1", "2F-a"}, {"a7", "2F-a"}, {"5", "1F"}, {"3", "1F"}}
+		if err != nil {
+			log.Fatal(err)
+		}
+		// var res Results
+		// res = Results{{"a4", "2F-a"}, {"C1", "2F"}, {"b4", "2F-b"}, {"a1", "2F-a"}, {"a7", "2F-a"}, {"5", "1F"}, {"3", "1F"}}
 
 		num := calcNumOfSeat(res)
 
