@@ -175,7 +175,7 @@ Resources:
         Type: LINUX_CONTAINER
         EnvironmentVariables:
           - Name: IMAGE_NAME
-            Value: !Sub ${Stage}-seat-info-image
+            Value: app
           - Name: AWS_DEFAULT_REGION
             Value: !Ref AWS::Region
           - Name: REPOSITORY_URI
@@ -186,6 +186,10 @@ Resources:
             Value: !Ref "AWS::AccountId"
       Name: !Sub ${Stage}-${ProjectName}-CodeBuild
       ServiceRole: !Ref CodeBuildServiceRole
+      Cache:
+        Type: LOCAL
+        Modes:
+          - LOCAL_DOCKER_LAYER_CACHE
 
  # -------------------------------------
  # CodePipeline 
