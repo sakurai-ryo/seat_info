@@ -27,6 +27,15 @@ Parameters:
     Default: 0  # 作成時はイメージがないので起動しないように設定
     # Descriotion: "ECSサービスの常時起動タスク数"
 
+  URL:
+    Type: String
+  CONTRACTID:
+    Type: String 
+  ACCESSTOKEN:
+    Type: String
+  STOREID:
+    Type: String
+
 Resources:
 
   Cluster:
@@ -148,6 +157,14 @@ Resources:
           Environment:
             - Name: TZ
               Value: Asia/Tokyo
+            - Name: URL
+              Value: !Ref URL
+            - Name: CONTRACT_ID
+              Value: !Ref CONTRACTID
+            - Name: ACCESS_TOKEN
+              Value: !Ref ACCESSTOKEN
+            - Name: STORE_ID
+              Value: !Ref STOREID
           LogConfiguration:
             LogDriver: awslogs
             Options:

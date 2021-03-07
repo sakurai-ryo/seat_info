@@ -1,0 +1,306 @@
+{{ define "open/open.html" }}
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Big+Shoulders+Display&display=swap">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.1/css/all.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/bootstrap.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/smart.css">
+</head>
+<body>
+    <div class="wrap">
+
+        <nav class="navbar navbar-dark">
+            <a href="/"><img src="../../static/images/10do_logo.jpg"></a>
+        </nav>
+
+        <div class="landing">
+            <div class="home-wrap">
+                <img class="img-fluid" src="../../static/images/shop.jpg">
+                <div class="home-inner">
+                </div>
+            </div>
+        </div>
+
+        <div class="container-fluid">
+            <div class="caption row text-center">
+                <h1 class="col-12">10°CAFE 空席情報</h1>
+            </div>
+        </div>
+
+        <div class="container-fluid mt-5 header">
+        <div class="row">
+            <div class="col-12 w-100 d-flex justify-content-between">
+                <div class="col-3">
+                    <div class="col-12 beige text-center">
+                        <div class="content">空席</div>
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class=" col-12 red text-center">
+                        <div class="content">着席</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div id="date" class="col-12">最終更新<br>12:00</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row">
+            <h3 class="main mt-5 ml-3">現在ご利用可能なお席</h3>
+            <table class="mt-2 ml-3 mr-3 table table-striped">
+                <tr><td>1人席</td><td><span id="1F">残り{{.one}}</span></td></tr>
+                <tr><td>2人席(テーブル)</td><td><span id="2F-a">残り{{.table}}</span></td></tr>
+                <tr><td>2人席(ソファ)</td><td><span id="2F">残り{{.sofa}}</span></td></tr>
+                <tr><td>1人席(カウンター)</td><td><span id="2F-b">残り{{.counter}}</span></td></tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="1F mt-2">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-5 mt-5">
+                    <h3 class="main">１F</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="entrance mt-4">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-8 mx-auto text-center">
+                    <h3 class="line_bottom">入口</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-center">
+        <div class="table_1F container-fluid mt-4">
+            <div class="row justify-content-between">
+                <div class="col-12">
+                    <div id="1" class="col-4 offset-1 wrapper mx-auto">
+                        <div class="content">1人席</div>
+                    </div>
+                    <div id="2" class="col-4 wrapper mt-2 mx-auto">
+                        <div class="content">1人席</div>
+                    </div>
+                    <div id="3" class="col-4 wrapper mt-2 mx-auto">
+                        <div class="content">1人席</div>
+                    </div>
+                    <div id="4" class="col-4 wrapper mt-2 mx-auto">
+                        <div class="content">1人席</div>
+                    </div>
+                    <div id="5" class="col-4 wrapper mt-2 mx-auto">
+                        <div class="content">1人席</div>
+                    </div>
+                    <div id="6" class="col-4 wrapper mt-2 mx-auto">
+                        <div class="content">1人席</div>
+                    </div>
+                    <div id="7" class="col-4 wrapper mt-2 mx-auto">
+                        <div class="content">1人席</div>
+                    </div>
+                    <div id="8" class="col-4 wrapper mt-2 mx-auto">
+                        <div class="content">1人席</div>
+                    </div>
+                    <div id="9" class="col-4 wrapper mt-2 mx-auto">
+                        <div class="content">1人席</div>
+                    </div>
+                    <div id="10" class="col-4 wrapper mt-2 mx-auto">
+                        <div class="content">1人席</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="container-fluid mt-4">
+            <div class="row h-100">
+                <div class="col-5 offset-1 mx-auto text-center line_left mx-auto">
+                    <h3 class="kitchen">キッチン</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="2F mt-4">
+        <div class="container-fluid mt-5 mb-3">
+            <div class="row">
+                <div class="col-5 mt-4">
+                    <h3 class="main">２F</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-11 line_bottom mx-auto text-center">窓</div>
+            <div class="table_b mt-4 d-flex justify-content-between col-12">
+                <div id= "b1" class="wrapper counter col-1">
+                    <div class="content">1人</div>
+                </div>
+                <div id="b2" class="wrapper counter col-1">
+                    <div class="content">1人</div>
+                </div>
+                <div id="b3" class="wrapper counter col-1">
+                    <div class="content">1人</div>
+                </div>
+                <div id="b4" class="wrapper counter col-1">
+                    <div class="content">1人</div>
+                </div>
+                <div id="b5" class="wrapper counter col-1">
+                    <div class="content">1人</div>
+                </div>
+                <div id="b6" class="wrapper counter col-1">
+                    <div class="content">1人</div>
+                </div>
+            </div>
+
+            <div class="d-flex flex-column justify-content-around offset-1 col-2 mt-4">  
+                <div id="a8" class="wrapper mb-3">
+                    <div class="content">2人</div>
+                </div>
+                <div id="a7" class="wrapper mb-3">
+                    <div class="content">2人</div>
+                </div>
+                <div id="a6" class="wrapper mb-3">
+                    <div class="content">2人</div>
+                </div>
+                <div id="a5" class="wrapper mb-3">
+                    <div class="content">2人</div>
+                </div>
+                <div id="a4" class="wrapper mb-3">
+                    <div class="content">2人</div>
+                </div>
+                <div id="a3" class="wrapper mb-3">
+                    <div class="content">2人</div>
+                </div>
+                <div id="a2" class="wrapper mb-3">
+                    <div class="content">2人</div>
+                </div>
+                <div id="a1" class="wrapper mb-3">
+                    <div class="content">2人</div>
+                </div>                                 
+            </div>
+
+            <div class="d-flex justify-content-around col-8 mt-4">
+                <div class="table_sofa sofa d-flex flex-column justify-content-around col-4">
+                    <div class="wrapper_d">
+                        <div class="content"></div>
+                    </div>
+                    <div id="E2" class="wrapper">
+                        <div class="content">2人</div>
+                    </div>
+                    <div class="wrapper_d">
+                        <div class="content"></div>
+                    </div>
+                    <div id="D2" class="wrapper">
+                        <div class="content">2人</div>
+                    </div>
+                    <div class="wrapper_d">
+                        <div class="content"></div>
+                    </div>
+                    <div id="C2" class="wrapper">
+                        <div class="content">2人</div>
+                    </div>
+                    <div class="wrapper_d">
+                        <div class="content"></div>
+                    </div>
+                    <div class="wrapper_d">
+                        <div class="content"></div>
+                    </div>
+                </div>
+                <div class="table_sofa sofa d-flex flex-column justify-content-between col-4">
+                    <div id="F1" class="wrapper">
+                        <div class="content">2人</div>
+                    </div>
+                    <div class="wrapper_d">
+                        <div class="content"></div>
+                    </div>
+                    <div id="E1" class="wrapper">
+                        <div class="content">2人</div>
+                    </div>
+                    <div class="wrapper_d">
+                        <div class="content"></div>
+                    </div>
+                    <div id="D1" class="wrapper">
+                        <div class="content">2人</div>
+                    </div>
+                    <div class="wrapper_d">
+                        <div class="content"></div>
+                    </div>
+                    <div id="C1" class="wrapper">
+                        <div class="content">2人</div>
+                    </div>
+                    <div class="wrapper_d">
+                        <div class="content"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-8 line_top d-flex justify-content-center mt-5 mx-auto text-center">入口</div> 
+        </div>
+    </div>
+
+    <div class="container-fluid mt-4">
+        <div class="row mx-auto">
+            <div class="col-12 text-center w-100">
+                <p>＊席予約は平日6名以下のみ可能。</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="contact" class="offset">
+        <footer>
+            <div class="row justify-content-center">
+                <div class="col-12 text-center contact w-100">
+                    <br><strong>Contact info</strong>
+                    <p>03-6912-6109</p>
+                    <p>10docafe@gmail.com</p>
+                    <a href="https://twitter.com/10docafe" target="_blank"><i class="fab fa-twitter-square"></i></a>
+                    <a href="https://www.instagram.com/10docafe" target="_blank"><i class="fab fa-instagram"></i></a>
+                </div>
+                <hr class="socket">
+                &copy;10°CAFE All Rights Reserved.
+            </div>
+        </footer>
+    </div>
+</body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.10.6/moment.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.10.6/locale/ja.js"></script>
+<script>
+    function addSeatInfo() {
+        const date = moment().toDate();
+        const addZero = (minuite)=>{ //moment().formatは何故か時間がずれるため
+            if(minuite >= 0 && minuite < 10){
+            return  minuite = "0" + minuite;
+            }
+            else{
+                return minuite;
+            }
+        };
+        const now = `${date.getHours()}:${addZero(date.getMinutes())}`;
+        document.getElementById('date').innerHTML = `最終更新:${now}`;
+
+        const table = {{.seats}};
+        if(table.length){
+            for (const full of table) { //座られている座席の色を変える
+                const checked = document.getElementById(full);
+                checked.style.backgroundColor = 'coral';
+            }
+        }
+        else return; // 座っている席が無いならreturn
+    }
+    addSeatInfo()
+</script>
+
+</html>
+
+{{ end }}

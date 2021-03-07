@@ -1,0 +1,83 @@
+{{ define "close/close.html" }}
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>営業時間外</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Big+Shoulders+Display&display=swap">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.1/css/all.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/bootstrap.css">
+    <link rel="stylesheet" type="text/css" href="../../static/css/smart.css">
+</head>
+<body>
+    <nav class="navbar navbar-dark">
+        <a href="/"><img src="../../static/images/10do_logo.jpg"></a>
+    </nav>
+
+    <div class="landing">
+        <div class="home-wrap">
+            <img class="img-fluid" src="../../static/images/shop.jpg">
+            <div class="home-inner">
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <div class="caption row text-center">
+            <h1 class="col-12">10°CAFE 空席情報</h1>
+        </div>
+    </div>
+
+    <main role="main" class="container-fluid">
+        <div class="row">
+            <div class="col-10 offset-1 text-center">
+                <h2 class="mt-5 mb-5">ただいま営業時間外です</h2>
+
+                <!-- <h3 class="mb-1">～営業時間～</h3> -->
+                <!-- <p class="mb-1">11:00～23:30</p>
+                <p class="mb-1">ラストオーダー:22:30</p>
+                <p class="mb-1">定休日:第三日曜日</p> -->
+                <table class="table table-sm">
+                    <tr>
+                    <th></th>
+                        <td scope="col">営業時間</td>
+                        <td scope="col">LO</td>
+                    </tr>
+                    <tr>
+                    <th scope="row">平日</th>
+                        <td>07:30 ~ 20:00</td>
+                        <td>19:00</td>
+                    </tr>
+                    <tr>
+                    <th scope="row">土日祝</th>
+                        <td>11:00 ~ 20:00</td>
+                        <td>19:00</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <div id="contact" class="offset">
+        <footer>
+            <div class="row justify-content-center">
+                <div class="col-12 text-center contact w-100">
+                    <br><strong>Contact info</strong>
+                    <p>03-6912-6109</p>
+                    <p>10docafe@gmail.com</p>
+                    <a href="https://twitter.com/10docafe" target="_blank"><i class="fab fa-twitter-square"></i></a>
+                    <a href="https://www.instagram.com/10docafe" target="_blank"><i class="fab fa-instagram"></i></a>
+                </div>
+                <hr class="socket">
+                &copy;10°CAFE All Rights Reserved.
+            </div>
+        </footer>
+    </div>
+
+</body>
+</html>
+
+{{ end }}
