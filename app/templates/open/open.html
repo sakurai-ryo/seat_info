@@ -196,6 +196,29 @@
                     <div class="wrapper_d">
                         <div class="content"></div>
                     </div>
+                    <div id="E2" class="wrapper">
+                        <div class="content">2人</div>
+                    </div>
+                    <div class="wrapper_d">
+                        <div class="content"></div>
+                    </div>
+                    <div id="D2" class="wrapper">
+                        <div class="content">2人</div>
+                    </div>
+                    <div class="wrapper_d">
+                        <div class="content"></div>
+                    </div>
+                    <div id="C2" class="wrapper">
+                        <div class="content">2人</div>
+                    </div>
+                    <div class="wrapper_d">
+                        <div class="content"></div>
+                    </div>
+                    <div class="wrapper_d">
+                        <div class="content"></div>
+                    </div>
+                </div>
+                <div class="table_sofa sofa d-flex flex-column justify-content-between col-4">
                     <div id="F1" class="wrapper">
                         <div class="content">2人</div>
                     </div>
@@ -214,30 +237,7 @@
                     <div class="wrapper_d">
                         <div class="content"></div>
                     </div>
-                    <div class="wrapper_d">
-                        <div class="content"></div>
-                    </div>
-                </div>
-                <div class="table_sofa sofa d-flex flex-column justify-content-between col-4">
-                    <div id="F2" class="wrapper">
-                        <div class="content">2人</div>
-                    </div>
-                    <div class="wrapper_d">
-                        <div class="content"></div>
-                    </div>
-                    <div id="E2" class="wrapper">
-                        <div class="content">2人</div>
-                    </div>
-                    <div class="wrapper_d">
-                        <div class="content"></div>
-                    </div>
-                    <div id="D2" class="wrapper">
-                        <div class="content">2人</div>
-                    </div>
-                    <div class="wrapper_d">
-                        <div class="content"></div>
-                    </div>
-                    <div id="C2" class="wrapper">
+                    <div id="C1" class="wrapper">
                         <div class="content">2人</div>
                     </div>
                     <div class="wrapper_d">
@@ -273,8 +273,32 @@
         </footer>
     </div>
 </body>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.10.6/moment.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.10.6/locale/ja.js"></script>
 <script>
+    function addSeatInfo() {
+        const date = moment().toDate();
+        const addZero = (minuite)=>{ //moment().formatは何故か時間がずれるため
+            if(minuite >= 0 && minuite < 10){
+            return  minuite = "0" + minuite;
+            }
+            else{
+                return minuite;
+            }
+        };
+        const now = `${date.getHours()}:${addZero(date.getMinutes())}`;
+        document.getElementById('date').innerHTML = `最終更新:${now}`;
+
+        const table = {{.seats}};
+        if(table.length){
+            for (const full of table) { //座られている座席の色を変える
+                const checked = document.getElementById(full);
+                checked.style.backgroundColor = 'coral';
+            }
+        }
+        else return; // 座っている席が無いならreturn
+    }
+    addSeatInfo()
 </script>
 
 </html>

@@ -23,7 +23,8 @@ type NumOfCategory struct {
 	Counter int
 }
 
-// controllerに全部書いてるがあんまりよくない
+// TODO: controllerに全部書いてるがあんまりよくない
+// modelやらにいつか分ける
 func Controller(c *gin.Context) {
 	today := time.Now()
 	isOpen := shared.IsOpen(today)
@@ -38,6 +39,7 @@ func Controller(c *gin.Context) {
 		// log.Print(seat)
 		var res Results
 		res = Results{{"a4", "2F-a"}, {"C1", "2F"}, {"b4", "2F-b"}, {"a1", "2F-a"}, {"a7", "2F-a"}, {"5", "1F"}, {"3", "1F"}}
+
 		num := calcNumOfSeat(res)
 
 		c.HTML(http.StatusOK, "open/open.html", gin.H{
@@ -45,12 +47,22 @@ func Controller(c *gin.Context) {
 			"table":   8 - num.Table,
 			"sofa":    7 - num.Sofa,
 			"counter": 4 - num.Counter,
+			"seats":   getSeats(res),
 		})
 	} else {
 		c.HTML(http.StatusOK, "close/close.html", gin.H{
 			"color": "color: red;",
 		})
 	}
+}
+
+// TODO: 下で何回もループ回すのは無駄
+func getSeats(re Results) []string {
+	var seats []string
+	for _, r := range re {
+		seats = append(seats, r.Seat)
+	}
+	return seats
 }
 
 func calcNumOfSeat(re Results) NumOfCategory {
