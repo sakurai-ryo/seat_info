@@ -152,10 +152,7 @@ Resources:
           phases:
             install:
               commands:
-                - apk --update add tzdata
-                - cp /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
-                - apk del tzdata 
-                - rm -rf /var/cache/apk/*
+                - export TZ="Asia/Tokyo" 
             pre_build:
               commands:
                 - aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.ap-northeast-1.amazonaws.com
