@@ -22,4 +22,4 @@ aws-codebuild-docker-images
 
 .env
 db.json
-app/static/images
+# app/static/images
