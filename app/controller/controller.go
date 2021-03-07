@@ -41,7 +41,7 @@ func Controller(c *gin.Context) {
 
 		num := calcNumOfSeat(res)
 
-		c.HTML(http.StatusOK, "open/open.html", gin.H{
+		c.HTML(http.StatusOK, "open/open.tmpl", gin.H{
 			"one":     10 - num.One,
 			"table":   8 - num.Table,
 			"sofa":    7 - num.Sofa,
@@ -49,7 +49,7 @@ func Controller(c *gin.Context) {
 			"seats":   getSeats(res),
 		})
 	} else {
-		c.HTML(http.StatusOK, "close/close.html", gin.H{
+		c.HTML(http.StatusOK, "close/close.tmpl", gin.H{
 			"color": "color: red;",
 		})
 	}
