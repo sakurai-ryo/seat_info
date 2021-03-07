@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"seat_info/shared"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -42,10 +41,10 @@ func Controller(c *gin.Context) {
 		num := calcNumOfSeat(res)
 
 		c.HTML(http.StatusOK, "open/open.html", gin.H{
-			"one":     num.One,
-			"table":   num.Table,
-			"sofa":    num.Sofa,
-			"counter": num.Counter,
+			"one":     10 - num.One,
+			"table":   8 - num.Table,
+			"sofa":    7 - num.Sofa,
+			"counter": 4 - num.Counter,
 		})
 	} else {
 		c.HTML(http.StatusOK, "close/close.html", gin.H{
@@ -57,16 +56,16 @@ func Controller(c *gin.Context) {
 func calcNumOfSeat(re Results) NumOfCategory {
 	var num NumOfCategory
 	for _, r := range re {
-		if strings.Contains(r.Category, "1F") {
+		if r.Category == "1F" {
 			num.One++
 		}
-		if strings.Contains(r.Category, "2F-a") {
+		if r.Category == "2F-a" {
 			num.Table++
 		}
-		if strings.Contains(r.Category, "2F") {
+		if r.Category == "2F" {
 			num.Sofa++
 		}
-		if strings.Contains(r.Category, "2F-b") {
+		if r.Category == "2F-b" {
 			num.Counter++
 		}
 	}
