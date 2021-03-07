@@ -128,6 +128,7 @@ Resources:
                   - elasticloadbalancing:*
                   - autoscaling:*
                   - iam:PassRole
+                  - codestar-connections:UseConnection
 
  # -------------------------------------
  # Artifact S3 Bucket
@@ -211,7 +212,7 @@ Resources:
                 ConnectionArn: {"Fn::ImportValue": !Sub "${Stage}-${ProjectName}-Github-Connection"}
                 FullRepositoryId: !Ref RepositoryName
                 BranchName: !Ref BranchName
-                OutputArtifactFormat: 'CODEBUILD_CLONE_REF'
+                OutputArtifactFormat: 'CODE_ZIP'
               RunOrder: 1
               OutputArtifacts:
                 - Name: App
