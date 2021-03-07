@@ -62,5 +62,5 @@ if [ ${Target} = "all" ] || [ ${Target} = "codepipeline" ]; then
     --capabilities CAPABILITY_NAMED_IAM \
     --parameter-overrides \
     Stage=${Stage} \
-    BranchName=fix/codebuild#7
+    BranchName=master
 fi
