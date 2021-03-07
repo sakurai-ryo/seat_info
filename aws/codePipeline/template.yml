@@ -173,6 +173,8 @@ Resources:
         Type: LINUX_CONTAINER
         PrivilegedMode: true
         EnvironmentVariables:
+          - Name: TZ
+            Value: Asia/Tokyo
           - Name: IMAGE_NAME
             Value: app
           - Name: AWS_DEFAULT_REGION
