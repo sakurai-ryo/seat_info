@@ -30,7 +30,7 @@ func Controller(c *gin.Context) {
 	isOpen := shared.IsOpen(today)
 	// logging(c)
 
-	if isOpen {
+	if !isOpen {
 		// seat, err := request()
 		// res := []string{"a4", "b3", "a7", "a2", "b1", "1", "4", "a6", "a8", "D1", "10", "F1", "7", "b2", "a1", "a3", "C1", "8", "3", "E1"}
 		// if err != nil {
