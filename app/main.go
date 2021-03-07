@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+	"os"
 	"seat_info/controller"
 
 	"github.com/gin-gonic/gin"
@@ -13,6 +15,7 @@ func main() {
 	engine.Static("/static", "./static")
 	// today := time.Now()
 	engine.GET("/", func(c *gin.Context) {
+		log.Print(os.Getenv("TZ"))
 		controller.Controller(c)
 	})
 	engine.Run(":80")
