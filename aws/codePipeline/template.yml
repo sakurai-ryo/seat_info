@@ -1,5 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 
+
 Parameters:
   Stage:
     Description: Stage
@@ -128,6 +129,7 @@ Resources:
                   - elasticloadbalancing:*
                   - autoscaling:*
                   - iam:PassRole
+                  - codestar-connections:UseConnection
 
  # -------------------------------------
  # Artifact S3 Bucket
@@ -150,32 +152,29 @@ Resources:
           phases:
             pre_build:
               commands:
-                - echo Logging in to Amazon ECR...
-                - $(aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.ap-northeast-1.amazonaws.com)
+                - aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.ap-northeast-1.amazonaws.com
                 - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
                 - IMAGE_TAG=${COMMIT_HASH:=latest}
             build:
               commands:
-                - echo Build started on `date`
-                - echo Building the Docker image...
-                - docker build -t $REPOSITORY_URI:latest ../../app
+                - docker build -t $REPOSITORY_URI:latest ./app
                 - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
             post_build:
               commands:
-                - echo Build completed on `date`
-                - echo Pushing the Docker images...
                 - docker push $REPOSITORY_URI:latest
                 - docker push $REPOSITORY_URI:$IMAGE_TAG
-                - echo Writing image definitions file...
-                - echo "[{\"name\":\"${ContainerName}\",\"imageUri\":\"${REPOSITORY_URI}:${IMAGE_TAG}\"}]" > imagedefinitions.json
+                - echo "[{\"name\":\"${IMAGE_NAME}\",\"imageUri\":\"${REPOSITORY_URI}:${IMAGE_TAG}\"}]" > imagedefinitions.json
           artifacts:
-            files: imagedefinitions.json
+            files: ./imagedefinitions.json
       Environment:
         PrivilegedMode: true
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/docker:18.09.0-1.7.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
         Type: LINUX_CONTAINER
+        PrivilegedMode: true
         EnvironmentVariables:
+          - Name: IMAGE_NAME
+            Value: app
           - Name: AWS_DEFAULT_REGION
             Value: !Ref AWS::Region
           - Name: REPOSITORY_URI
@@ -186,6 +185,10 @@ Resources:
             Value: !Ref "AWS::AccountId"
       Name: !Sub ${Stage}-${ProjectName}-CodeBuild
       ServiceRole: !Ref CodeBuildServiceRole
+      Cache:
+        Type: LOCAL
+        Modes:
+          - LOCAL_DOCKER_LAYER_CACHE
 
  # -------------------------------------
  # CodePipeline 
@@ -211,7 +214,7 @@ Resources:
                 ConnectionArn: {"Fn::ImportValue": !Sub "${Stage}-${ProjectName}-Github-Connection"}
                 FullRepositoryId: !Ref RepositoryName
                 BranchName: !Ref BranchName
-                OutputArtifactFormat: 'CODEBUILD_CLONE_REF'
+                OutputArtifactFormat: 'CODE_ZIP'
               RunOrder: 1
               OutputArtifacts:
                 - Name: App

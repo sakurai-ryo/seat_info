@@ -23,6 +23,6 @@ RUN apk add --update --no-cache ca-certificates && \
 WORKDIR /app
 COPY --from=build /app /app
 
-EXPOSE 8080
+EXPOSE 80
 
 ENTRYPOINT ["/app/seat_info"]
