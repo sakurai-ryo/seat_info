@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-type Result struct {
+type Response struct {
 	Status   string      `json:"status"`
 	Code     interface{} `json:"code"`
 	Message  string      `json:"message"`
@@ -73,8 +73,8 @@ type Result struct {
 	} `json:"data"`
 }
 
-func filter(result *Result) []string {
-	var seat []string
+func filter(result *Response) []Result {
+	var Results []Result
 	// TODO: 条件部分は関数に切り出した方がよさげ
 	for _, d := range result.Data {
 		if d.Status != "1" && d.Status != "4" {
@@ -83,13 +83,13 @@ func filter(result *Result) []string {
 		if strings.Contains(d.TableName, "S") {
 			continue
 		}
-		seat = append(seat, d.TableName)
+		Results = append(Results, Result{Seat: d.TableName, Category: d.TableCategory})
 	}
-	return seat
+	return Results
 }
 
 // もう少し関数細かくしたい
-func request() ([]string, error) {
+func request() ([]Result, error) {
 	u := os.Getenv("URL")
 	contractID := os.Getenv("CONTRACT_ID")
 	accessToken := os.Getenv("ACCESS_TOKEN")
@@ -119,7 +119,7 @@ func request() ([]string, error) {
 	}
 	defer resp.Body.Close()
 	byteArray, _ := ioutil.ReadAll(resp.Body)
-	var result Result
+	var result Response
 	if err := json.Unmarshal(byteArray, &result); err != nil {
 		return nil, err
 	}

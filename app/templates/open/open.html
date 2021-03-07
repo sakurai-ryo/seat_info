@@ -56,10 +56,10 @@
         <div class="row">
             <h3 class="main mt-5 ml-3">現在ご利用可能なお席</h3>
             <table class="mt-2 ml-3 mr-3 table table-striped">
-                <tr><td>1人席</td><td><span id="1F">残り</span></td></tr>
-                <tr><td>2人席(テーブル)</td><td><span id="2F-a">残り</span></td></tr>
-                <tr><td>2人席(ソファ)</td><td><span id="2F">残り</span></td></tr>
-                <tr><td>1人席(カウンター)</td><td><span id="2F-b">残り</span></td></tr>
+                <tr><td>1人席</td><td><span id="1F">残り{{.one}}</span></td></tr>
+                <tr><td>2人席(テーブル)</td><td><span id="2F-a">残り{{.table}}</span></td></tr>
+                <tr><td>2人席(ソファ)</td><td><span id="2F">残り{{.sofa}}</span></td></tr>
+                <tr><td>1人席(カウンター)</td><td><span id="2F-b">残り{{.counter}}</span></td></tr>
             </table>
         </div>
     </div>
@@ -273,6 +273,11 @@
         </footer>
     </div>
 </body>
+
+<script>
+    alert({{.alert}})
+</script>
+
 </html>
 
 {{ end }}
