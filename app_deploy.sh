@@ -97,5 +97,9 @@ if [ ${Target} = "all" ] || [ ${Target} = "fargate" ]; then
     --parameter-overrides \
     ProjectName=${ProjectName} \
     DesiredCount=${DesiredCount} \
-    Stage=${Stage}
+    Stage=${Stage} \
+    URL=${URL} \
+    CONTRACTID=${CONTRACT_ID} \
+    ACCESSTOKEN=${ACCESS_TOKEN} \
+    STOREID=${STORE_ID}
 fi
